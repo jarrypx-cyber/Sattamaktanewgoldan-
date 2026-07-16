@@ -129,12 +129,14 @@ export default function App() {
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [scraperLogs, setScraperLogs] = useState<string[]>([]);
 
-  // Dynamic live-fetching from DPBoss Scraper API every 10 seconds
+     // Dynamic live-fetching from DPBoss Scraper API every 10 seconds
   useEffect(() => {
     const fetchLiveResults = async () => {
       try {
-        const response = await fetch("/api/results");
+        // Aapka live Render backend URL connect kiya
+        const response = await fetch("https://matka-backend-o9td.onrender.com/api/results");
         const result = await response.json();
+        
         if (result.status === "success" || result.status === "fallback") {
           const apiData = result.data;
           setMarkets((prevMarkets) => {
