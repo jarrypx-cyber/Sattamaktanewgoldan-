@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Main Home Page & Live Results -->
+  <url>
+    <loc>https://newgoldansagar.com/</loc>
+    <lastmod>2026-07-13</lastmod>
+    <changefreq>always</changefreq>
+    <priority>1.0</priority>
+  </url>
+  
+  <!-- historical charts and info can be added if they are dynamic endpoints,
+       but since this is a Single Page App (SPA) with a clean tab layout,
+       having the root with a high refresh frequency (always) is perfect! -->
+</urlset>

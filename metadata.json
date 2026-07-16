@@ -1,0 +1,6 @@
+{
+  "name": "Newgoldansagar",
+  "description": "Live open and close results, countdowns, and historical jodi charts for Newgoldansagar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

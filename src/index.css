@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+/* ⚡ Traditional Satta Matka Custom Animations ⚡ */
+
+@keyframes marquee {
+  0% {
+    transform: translateX(15%);
+  }
+  100% {
+    transform: translateX(-85%);
+  }
+}
+
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.97;
+    transform: scale(0.995);
+  }
+}
+
+/* Custom utility classes */
+.animate-marquee {
+  display: inline-block;
+  animation: marquee 22s linear infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
+
+.animate-spin-slow {
+  animation: spin 8s linear infinite;
+}
