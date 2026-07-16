@@ -152,9 +152,36 @@ async function scrapeDPBoss() {
   }
 }
 
-app.get("/api/results", async (req, res) => {
-  const scraped = await scrapeDPBoss();
-  res.json(scraped);
+// In-memory cache for live results
+let cachedResults: any = {
+  data: {
+    KALYAN: { ...fallbackData.KALYAN },
+    "TIME BAZAR": { ...fallbackData["TIME BAZAR"] },
+    "MILAN DAY": { ...fallbackData["MILAN DAY"] }
+  },
+  status: "fallback",
+  source: "DPBoss (Initializing)"
+};
+
+// Background worker to scrape DPBoss periodically
+async function runBackgroundScraper() {
+  try {
+    const scraped = await scrapeDPBoss();
+    cachedResults = scraped;
+    console.log(`[Background Scraper] Cache updated. Status: ${scraped.status}, Source: ${scraped.source}`);
+  } catch (error) {
+    console.error("[Background Scraper] Error updating cache:", error);
+  }
+}
+
+// Start periodic scraping every 30 seconds
+setInterval(runBackgroundScraper, 30000);
+
+// Run immediately on start (non-blocking)
+runBackgroundScraper();
+
+app.get("/api/results", (req, res) => {
+  res.json(cachedResults);
 });
 
 async function startServer() {

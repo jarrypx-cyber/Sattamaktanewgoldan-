@@ -166,7 +166,7 @@ export default function App() {
           });
         }
       } catch (error) {
-        console.error("Failed to fetch live results from DPBoss API:", error);
+        console.warn("Failed to fetch live results from DPBoss API:", error);
       }
     };
 
