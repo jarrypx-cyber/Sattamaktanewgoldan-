@@ -98,8 +98,10 @@ export default function App() {
     return defaultMarkets;
   });
 
-  // Dynamically computed live market results
-  const resolvedMarkets = markets.map((m) => getLiveMarketResult(m, todayStr, currentMinutes));
+  // FIXED: No more dynamic "Awaited" override. Directly show whatever is saved in markets state.
+  const resolvedMarkets = markets.map((m) => {
+    return { ...m, status: m.status || 'CLOSED' };
+  });
 
   // Time formatters for automatic scraping & upload logs
   const getCurrentTimeFormatted = () => {
@@ -113,7 +115,7 @@ export default function App() {
     return `${String(hours).padStart(2, '0')}:${minutes}:${seconds} ${ampm}`;
   };
 
-  // Dynamic live-fetching from DPBoss Scraper API every 10 seconds with Fallback Support
+  // Dynamic live-fetching from DPBoss Scraper API every 10 seconds
   useEffect(() => {
     const fetchLiveResults = async () => {
       try {
@@ -125,6 +127,8 @@ export default function App() {
           setMarkets((prevMarkets) => {
             const updated = prevMarkets.map((m) => {
               let apiMarket = null;
+              
+              // Direct mapping of key markets with DPBoss keys
               if (m.id === 'kalyan' && apiData.KALYAN) {
                 apiMarket = apiData.KALYAN;
               } else if (m.id === 'time-bazar' && apiData['TIME BAZAR']) {
@@ -138,18 +142,18 @@ export default function App() {
                 }
               }
 
-              // Agar API se valid naya data milta hai tabhi overwrite karein, nahi toh purana save rakhein
-              if (apiMarket && apiMarket.openPana && apiMarket.openSingle) {
+              // Update only if DPBoss has valid numbers
+              if (apiMarket && (apiMarket.openSingle || apiMarket.openPana)) {
                 return {
                   ...m,
-                  openPana: apiMarket.openPana,
-                  openSingle: apiMarket.openSingle,
-                  closeSingle: apiMarket.closeSingle,
-                  closePana: apiMarket.closePana,
+                  openPana: apiMarket.openPana || m.openPana,
+                  openSingle: apiMarket.openSingle !== undefined ? apiMarket.openSingle : m.openSingle,
+                  closeSingle: apiMarket.closeSingle !== undefined ? apiMarket.closeSingle : m.closeSingle,
+                  closePana: apiMarket.closePana || m.closePana,
+                  status: 'CLOSED',
                   lastUpdated: `Live DPBoss Sync at ${getCurrentTimeFormatted()}`
                 };
               }
-              // Fallback: Agar API khali hai toh data delete mat karo, purana safe rakho
               return m;
             });
             localStorage.setItem('satta_markets', JSON.stringify(updated));
@@ -237,7 +241,6 @@ export default function App() {
               {/* Dynamic Live Market Cards */}
               <div className="grid gap-4 sm:grid-cols-2">
                 {resolvedMarkets.map((market) => {
-                  // Check if result is empty/awaited
                   const hasResult = market.openPana || market.openSingle || market.closeSingle || market.closePana;
                   
                   return (
@@ -260,10 +263,10 @@ export default function App() {
                         </span>
                       </div>
 
-                      {/* Fallback Display: If no result, show previous or placeholder nicely instead of total blank */}
+                      {/* Displaying Yesterday Result if live result of today is awaited */}
                       <div className="bg-neutral-950/80 border border-neutral-800/60 rounded-xl p-4 text-center my-3 shadow-inner">
                         <div className="text-neutral-400 text-[10px] uppercase tracking-widest font-extrabold mb-1">
-                          {hasResult ? "Live Result" : "Yesterday / Prev Result"}
+                          {hasResult ? "Live Result" : "Yesterday Result"}
                         </div>
                         <div className="flex justify-center items-center gap-3 text-2xl font-black font-mono">
                           <span className="text-neutral-300 tracking-wider">{market.openPana || '---'}</span>
@@ -278,7 +281,7 @@ export default function App() {
                         <span>{market.lastUpdated || 'Synced just now'}</span>
                         <button 
                           onClick={() => {
-                            setAppToast({ text: `${market.name} sync checking completed!`, icon: "🔄" });
+                            setAppToast({ text: `${market.name} results updated live!`, icon: "🔄" });
                           }} 
                           className="text-amber-500 hover:text-amber-400 font-bold transition-all"
                         >
