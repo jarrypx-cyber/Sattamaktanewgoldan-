@@ -84,7 +84,6 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as Market[];
-        // Filter out any markets that aren't part of defaultMarkets
         const filtered = parsed.filter((pm) => defaultMarkets.some((dm) => dm.id === pm.id));
         const missing = defaultMarkets.filter((dm) => !filtered.some((pm) => pm.id === dm.id));
         if (missing.length > 0 || filtered.length !== defaultMarkets.length) {
@@ -99,7 +98,7 @@ export default function App() {
     return defaultMarkets;
   });
 
-  // Dynamically computed live market results (combining auto-update values + overrides)
+  // Dynamically computed live market results
   const resolvedMarkets = markets.map((m) => getLiveMarketResult(m, todayStr, currentMinutes));
 
   // Time formatters for automatic scraping & upload logs
@@ -114,22 +113,7 @@ export default function App() {
     return `${String(hours).padStart(2, '0')}:${minutes}:${seconds} ${ampm}`;
   };
 
-  const getISTTimeStr = (offsetMinutesAgo: number) => {
-    const d = getCurrentIST();
-    d.setMinutes(d.getMinutes() - offsetMinutesAgo);
-    let hours = d.getHours();
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12;
-    return `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
-  };
-
-  // Live Automatic Scraper & Uploader States
-  const [isScanning, setIsScanning] = useState<boolean>(false);
-  const [scraperLogs, setScraperLogs] = useState<string[]>([]);
-
-  // Dynamic live-fetching from DPBoss Scraper API every 10 seconds
+  // Dynamic live-fetching from DPBoss Scraper API every 10 seconds with Fallback Support
   useEffect(() => {
     const fetchLiveResults = async () => {
       try {
@@ -154,17 +138,18 @@ export default function App() {
                 }
               }
 
-              if (apiMarket) {
+              // Agar API se valid naya data milta hai tabhi overwrite karein, nahi toh purana save rakhein
+              if (apiMarket && apiMarket.openPana && apiMarket.openSingle) {
                 return {
                   ...m,
                   openPana: apiMarket.openPana,
                   openSingle: apiMarket.openSingle,
                   closeSingle: apiMarket.closeSingle,
                   closePana: apiMarket.closePana,
-                  status: 'CLOSED',
                   lastUpdated: `Live DPBoss Sync at ${getCurrentTimeFormatted()}`
                 };
               }
+              // Fallback: Agar API khali hai toh data delete mat karo, purana safe rakho
               return m;
             });
             localStorage.setItem('satta_markets', JSON.stringify(updated));
@@ -251,51 +236,58 @@ export default function App() {
             >
               {/* Dynamic Live Market Cards */}
               <div className="grid gap-4 sm:grid-cols-2">
-                {resolvedMarkets.map((market) => (
-                  <div
-                    key={market.id}
-                    className="relative bg-neutral-900 border border-neutral-800 rounded-2xl p-5 overflow-hidden group hover:border-amber-500/30 transition-all duration-300 shadow-xl"
-                  >
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl group-hover:bg-amber-500/10 transition-all duration-300" />
-                    
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-                          <h3 className="font-extrabold text-lg text-neutral-100 tracking-wide">{market.name}</h3>
+                {resolvedMarkets.map((market) => {
+                  // Check if result is empty/awaited
+                  const hasResult = market.openPana || market.openSingle || market.closeSingle || market.closePana;
+                  
+                  return (
+                    <div
+                      key={market.id}
+                      className="relative bg-neutral-900 border border-neutral-800 rounded-2xl p-5 overflow-hidden group hover:border-amber-500/30 transition-all duration-300 shadow-xl"
+                    >
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl group-hover:bg-amber-500/10 transition-all duration-300" />
+                      
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                            <h3 className="font-extrabold text-lg text-neutral-100 tracking-wide">{market.name}</h3>
+                          </div>
+                          <p className="text-xs text-neutral-500 mt-1">Open: {market.openTime} | Close: {market.closeTime}</p>
                         </div>
-                        <p className="text-xs text-neutral-500 mt-1">Open: {market.openTime} | Close: {market.closeTime}</p>
-                      </div>
-                      <span className="bg-amber-500/10 text-amber-500 text-[10px] font-black tracking-wider px-2 py-1 rounded-md border border-amber-500/20">
-                        {market.status}
-                      </span>
-                    </div>
-
-                    {/* Highly stylized digital Satta Result counter display */}
-                    <div className="bg-neutral-950/80 border border-neutral-800/60 rounded-xl p-4 text-center my-3 shadow-inner">
-                      <div className="text-neutral-400 text-[10px] uppercase tracking-widest font-extrabold mb-1">Live Result</div>
-                      <div className="flex justify-center items-center gap-3 text-2xl font-black font-mono">
-                        <span className="text-neutral-300 tracking-wider">{market.openPana || '???'}</span>
-                        <span className="text-amber-500 text-3xl font-black bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/30">
-                          {(market.openSingle ?? '?')}{(market.closeSingle ?? '?')}
+                        <span className="bg-amber-500/10 text-amber-500 text-[10px] font-black tracking-wider px-2 py-1 rounded-md border border-amber-500/20">
+                          {market.status}
                         </span>
-                        <span className="text-neutral-300 tracking-wider">{market.closePana || '???'}</span>
+                      </div>
+
+                      {/* Fallback Display: If no result, show previous or placeholder nicely instead of total blank */}
+                      <div className="bg-neutral-950/80 border border-neutral-800/60 rounded-xl p-4 text-center my-3 shadow-inner">
+                        <div className="text-neutral-400 text-[10px] uppercase tracking-widest font-extrabold mb-1">
+                          {hasResult ? "Live Result" : "Yesterday / Prev Result"}
+                        </div>
+                        <div className="flex justify-center items-center gap-3 text-2xl font-black font-mono">
+                          <span className="text-neutral-300 tracking-wider">{market.openPana || '---'}</span>
+                          <span className="text-amber-500 text-3xl font-black bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/30">
+                            {market.openSingle ?? '-'}{market.closeSingle ?? '-'}
+                          </span>
+                          <span className="text-neutral-300 tracking-wider">{market.closePana || '---'}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center text-[11px] text-neutral-500 mt-3 pt-2 border-t border-neutral-800/40">
+                        <span>{market.lastUpdated || 'Synced just now'}</span>
+                        <button 
+                          onClick={() => {
+                            setAppToast({ text: `${market.name} sync checking completed!`, icon: "🔄" });
+                          }} 
+                          className="text-amber-500 hover:text-amber-400 font-bold transition-all"
+                        >
+                          REFRESH
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex justify-between items-center text-[11px] text-neutral-500 mt-3 pt-2 border-t border-neutral-800/40">
-                      <span>{market.lastUpdated || 'Synced just now'}</span>
-                      <button 
-                        onClick={() => {
-                          setAppToast({ text: `${market.name} results updated live!`, icon: "🔄" });
-                        }} 
-                        className="text-amber-500 hover:text-amber-400 font-bold transition-all"
-                      >
-                        REFRESH
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Quick Navigation Section for Jodi Charts */}
