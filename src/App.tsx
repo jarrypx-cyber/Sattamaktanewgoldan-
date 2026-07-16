@@ -87,7 +87,7 @@ export default function App() {
         // Filter out any markets that aren't part of defaultMarkets
         const filtered = parsed.filter((pm) => defaultMarkets.some((dm) => dm.id === pm.id));
         const missing = defaultMarkets.filter((dm) => !filtered.some((pm) => pm.id === dm.id));
-        if (missing.length > 0 || filtered.length !== defaultMarkets.length || filtered.some((pm) => pm.openPana === '???')) {
+        if (missing.length > 0 || filtered.length !== defaultMarkets.length) {
           localStorage.setItem('satta_markets', JSON.stringify(defaultMarkets));
           return defaultMarkets;
         }
@@ -146,6 +146,11 @@ export default function App() {
                 apiMarket = apiData['TIME BAZAR'];
               } else if (m.id === 'milan-day' && apiData['MILAN DAY']) {
                 apiMarket = apiData['MILAN DAY'];
+              } else {
+                const upperName = m.name.toUpperCase();
+                if (apiData[upperName]) {
+                  apiMarket = apiData[upperName];
+                }
               }
 
               if (apiMarket) {
@@ -344,22 +349,16 @@ export default function App() {
   // Dynamically format a result for featured markets without ever showing "Loading.."
   const getDisplayResultForFeatured = (marketId: string): string => {
     const m = resolvedMarkets.find((x) => x.id === marketId);
-    if (!m) return '123-64-239'; // Robust default fallback
+    if (!m) return 'Awaited';
 
     // If today's result hasn't been declared yet
-    if (m.openPana === '???') {
-      const latestRecord = jodiRecords.find((r) => r.marketId === marketId && r.jodi && r.jodi !== '**');
-      if (latestRecord) {
-        const j1 = latestRecord.jodi[0] || '6';
-        const j2 = latestRecord.jodi[1] || '4';
-        return `${latestRecord.openPana}-${j1}${j2}-${latestRecord.closePana}`;
-      }
-      return '123-64-239'; // Realistic default
+    if (m.openPana === '???' || m.openPana === 'Awaited' || !m.openPana) {
+      return 'Awaited';
     }
 
     // If open declared but close is pending
-    if (m.closePana === '???') {
-      return `${m.openPana}-${m.openSingle}`;
+    if (m.closePana === '???' || m.closePana === 'Awaited' || !m.closePana) {
+      return `${m.openPana}-${m.openSingle}?-???`;
     }
 
     // Fully declared
@@ -613,9 +612,9 @@ export default function App() {
 
                     // Format the result cleanly matching traditional websites: OPEN_PANA - JODI - CLOSE_PANA
                     let displayResult = '';
-                    if (m.openPana === '???') {
-                      displayResult = '??? - ?  ? - ???';
-                    } else if (m.closePana === '???') {
+                    if (m.openPana === '???' || m.openPana === 'Awaited' || !m.openPana) {
+                      displayResult = 'Awaited';
+                    } else if (m.closePana === '???' || m.closePana === 'Awaited' || !m.closePana) {
                       displayResult = `${m.openPana} - ${m.openSingle} ? - ???`;
                     } else {
                       displayResult = `${m.openPana} - ${m.openSingle}${m.closeSingle} - ${m.closePana}`;

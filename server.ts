@@ -24,34 +24,15 @@ app.use((req, res, next) => {
 const TARGET_MARKETS = {
   KALYAN: "KALYAN",
   "TIME BAZAR": "TIME BAZAR",
-  "MILAN DAY": "MILAN DAY"
-};
-
-const fallbackData = {
-  KALYAN: {
-    name: "KALYAN",
-    openPana: "234",
-    openSingle: "5",
-    closeSingle: "9",
-    closePana: "990",
-    full_result: "234-59-990"
-  },
-  "TIME BAZAR": {
-    name: "TIME BAZAR",
-    openPana: "235",
-    openSingle: "0",
-    closeSingle: "9",
-    closePana: "388",
-    full_result: "235-09-388"
-  },
-  "MILAN DAY": {
-    name: "MILAN DAY",
-    openPana: "349",
-    openSingle: "6",
-    closeSingle: "1",
-    closePana: "128",
-    full_result: "349-61-128"
-  }
+  "MILAN DAY": "MILAN DAY",
+  "KALYAN MORNING": "KALYAN MORNING",
+  "MILAN MORNING": "MILAN MORNING",
+  "TIME BAZAR MORNING": "TIME BAZAR MORNING",
+  "NEW TIME BAZAR": "NEW TIME BAZAR",
+  "NIGHT TIME BAZAR": "NIGHT TIME BAZAR",
+  "SRIDEVI NIGHT": "SRIDEVI NIGHT",
+  "KALYAN NIGHT": "KALYAN NIGHT",
+  "RAJDHANI NIGHT": "RAJDHANI NIGHT"
 };
 
 function fetchHtml(url: string, headers: any, redirectCount = 0): Promise<string> {
@@ -101,11 +82,17 @@ async function scrapeDPBoss() {
     "Cache-Control": "max-age=0",
   };
 
-  const results: any = {
-    KALYAN: { ...fallbackData.KALYAN },
-    "TIME BAZAR": { ...fallbackData["TIME BAZAR"] },
-    "MILAN DAY": { ...fallbackData["MILAN DAY"] }
-  };
+  const results: any = {};
+  for (const key of Object.keys(TARGET_MARKETS)) {
+    results[key] = {
+      name: key,
+      openPana: "???",
+      openSingle: "?",
+      closeSingle: "?",
+      closePana: "???",
+      full_result: "???-??-???"
+    };
+  }
 
   try {
     const html = await fetchHtml(url, headers);
@@ -243,16 +230,22 @@ async function scrapeDPBoss() {
   }
 }
 
-// In-memory cache for live results
+// In-memory cache for live results initialized dynamically empty (Awaited)
 let cachedResults: any = {
-  data: {
-    KALYAN: { ...fallbackData.KALYAN },
-    "TIME BAZAR": { ...fallbackData["TIME BAZAR"] },
-    "MILAN DAY": { ...fallbackData["MILAN DAY"] }
-  },
-  status: "fallback",
+  data: {},
+  status: "success",
   source: "DPBoss (Initializing)"
 };
+for (const key of Object.keys(TARGET_MARKETS)) {
+  cachedResults.data[key] = {
+    name: key,
+    openPana: "???",
+    openSingle: "?",
+    closeSingle: "?",
+    closePana: "???",
+    full_result: "???-??-???"
+  };
+}
 
 // Background worker to scrape DPBoss periodically
 async function runBackgroundScraper() {
@@ -265,8 +258,8 @@ async function runBackgroundScraper() {
   }
 }
 
-// Start periodic scraping every 30 seconds
-setInterval(runBackgroundScraper, 30000);
+// Start periodic scraping every 1 minute
+setInterval(runBackgroundScraper, 60000);
 
 // Run immediately on start (non-blocking)
 runBackgroundScraper();
