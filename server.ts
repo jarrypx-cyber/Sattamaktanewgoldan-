@@ -54,7 +54,10 @@ const fallbackData = {
   }
 };
 
-function fetchHtml(url: string, headers: any): Promise<string> {
+function fetchHtml(url: string, headers: any, redirectCount = 0): Promise<string> {
+  if (redirectCount > 5) {
+    return Promise.reject(new Error("Too many redirects"));
+  }
   return new Promise((resolve, reject) => {
     const options = {
       headers,
@@ -63,7 +66,12 @@ function fetchHtml(url: string, headers: any): Promise<string> {
     };
     const req = https.get(url, options, (res) => {
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        resolve("");
+        let redirectUrl = res.headers.location;
+        if (!redirectUrl.startsWith("http")) {
+          const parsedUrl = new URL(url);
+          redirectUrl = `${parsedUrl.protocol}//${parsedUrl.host}${redirectUrl}`;
+        }
+        resolve(fetchHtml(redirectUrl, headers, redirectCount + 1));
         return;
       }
       let data = "";
@@ -85,7 +93,7 @@ function fetchHtml(url: string, headers: any): Promise<string> {
 }
 
 async function scrapeDPBoss() {
-  const url = "https://dpboss.net/";
+  const url = "https://dpbossx.net/";
   const headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept-Language": "en-US,en;q=0.9",
@@ -102,33 +110,116 @@ async function scrapeDPBoss() {
   try {
     const html = await fetchHtml(url, headers);
     if (!html) {
-      return { data: results, status: "fallback", source: "DPBoss (Protected/Simulated)" };
+      return { data: results, status: "fallback", source: "DPBoss (Empty response)" };
     }
 
     let parsedAny = false;
 
     // Helper to find a pattern near the index of the market name
     const findResultNear = (marketName: string): any => {
-      const idx = html.toUpperCase().indexOf(marketName);
-      if (idx === -1) return null;
+      const escapedName = marketName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
       
-      // Look at a substring of 1000 characters around the market name to find the pattern ddd-dd-ddd
-      const context = html.slice(Math.max(0, idx - 200), Math.min(html.length, idx + 800));
-      
-      const match = context.match(/(\d{3})\s*-\s*(\d{2})\s*-\s*(\d{3})/);
-      if (match) {
-        const openPana = match[1];
-        const jodi = match[2];
-        const closePana = match[3];
-        return {
-          name: marketName,
-          openPana,
-          openSingle: jodi[0] || "?",
-          closeSingle: jodi[1] || "?",
-          closePana,
-          full_result: `${openPana}-${jodi}-${closePana}`
-        };
+      // Try direct structured match first: <h4>MARKET</h4> <span>RESULT</span>
+      const regexDirect = new RegExp(`<h4>\\s*${escapedName}\\s*</h4>\\s*<span>\\s*([^<\\n\\r]+)\\s*</span>`, 'i');
+      const matchDirect = html.match(regexDirect);
+      if (matchDirect) {
+        const fullResultStr = matchDirect[1].trim();
+        const parts = fullResultStr.split('-');
+        if (parts.length === 3) {
+          const openPana = parts[0].trim();
+          const jodi = parts[1].trim();
+          const closePana = parts[2].trim();
+          return {
+            name: marketName,
+            openPana,
+            openSingle: jodi[0] || "?",
+            closeSingle: jodi[1] || "?",
+            closePana,
+            full_result: `${openPana}-${jodi}-${closePana}`
+          };
+        } else if (parts.length === 2) {
+          const openPana = parts[0].trim();
+          const jodi = parts[1].trim();
+          return {
+            name: marketName,
+            openPana,
+            openSingle: jodi[0] || "?",
+            closeSingle: jodi[1] || "?",
+            closePana: "***",
+            full_result: `${openPana}-${jodi}-***`
+          };
+        }
       }
+
+      // Try matching with h4 attributes e.g., <h4 class="...">MARKET</h4>
+      const regexAttr = new RegExp(`<h4[^>]*>\\s*${escapedName}\\s*</h4>\\s*<span[^>]*>\\s*([^<\\n\\r]+)\\s*</span>`, 'i');
+      const matchAttr = html.match(regexAttr);
+      if (matchAttr) {
+        const fullResultStr = matchAttr[1].trim();
+        const parts = fullResultStr.split('-');
+        if (parts.length === 3) {
+          const openPana = parts[0].trim();
+          const jodi = parts[1].trim();
+          const closePana = parts[2].trim();
+          return {
+            name: marketName,
+            openPana,
+            openSingle: jodi[0] || "?",
+            closeSingle: jodi[1] || "?",
+            closePana,
+            full_result: `${openPana}-${jodi}-${closePana}`
+          };
+        } else if (parts.length === 2) {
+          const openPana = parts[0].trim();
+          const jodi = parts[1].trim();
+          return {
+            name: marketName,
+            openPana,
+            openSingle: jodi[0] || "?",
+            closeSingle: jodi[1] || "?",
+            closePana: "***",
+            full_result: `${openPana}-${jodi}-***`
+          };
+        }
+      }
+
+      // Secondary context-based fallback
+      const idx = html.toUpperCase().indexOf(marketName.toUpperCase());
+      if (idx !== -1) {
+        const context = html.slice(Math.max(0, idx - 100), Math.min(html.length, idx + 600));
+        const matchSpan = context.match(/<span[^>]*>\s*([^<\n\r]+)\s*<\/span>/i);
+        if (matchSpan) {
+          const fullResultStr = matchSpan[1].trim();
+          if (fullResultStr.includes('-') || /^\d+$/.test(fullResultStr)) {
+            const parts = fullResultStr.split('-');
+            if (parts.length === 3) {
+              const openPana = parts[0].trim();
+              const jodi = parts[1].trim();
+              const closePana = parts[2].trim();
+              return {
+                name: marketName,
+                openPana,
+                openSingle: jodi[0] || "?",
+                closeSingle: jodi[1] || "?",
+                closePana,
+                full_result: `${openPana}-${jodi}-${closePana}`
+              };
+            } else if (parts.length === 2) {
+              const openPana = parts[0].trim();
+              const jodi = parts[1].trim();
+              return {
+                name: marketName,
+                openPana,
+                openSingle: jodi[0] || "?",
+                closeSingle: jodi[1] || "?",
+                closePana: "***",
+                full_result: `${openPana}-${jodi}-***`
+              };
+            }
+          }
+        }
+      }
+
       return null;
     };
 
