@@ -7,25 +7,25 @@ import { defaultMarkets, generateSeedJodiChart, getCurrentIST, getISTDateString,
 import { Market, JodiRecord } from './types';
 import { Crown, Flame, Star, Trophy, MessageSquare, Zap, ShieldCheck, RefreshCw, ChevronRight, Wifi, Terminal, Cpu, Database, Radio } from 'lucide-react';
 const fetchLiveResults = () => {
-  fetch('https://matka-backend-duqq.onrender.com/api/results')
+  fetch('https://' + 'matka-backend-duqq' + '.onrender.com' + '/api/results')
     .then(res => res.json())
     .then(data => console.log("Live Results Connected:", data))
     .catch(err => console.error(err));
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<string>('live');
-  const [selectedChartMarketId, setSelectedChartMarketId] = useState<string>('kalyan');
-  const [isAdmin, setIsAdmin] = useState<boolean>(() => localStorage.getItem('satta_admin_logged_in') === 'true');
+  const [activeTab, setActiveTab] = useState('live');
+  const [selectedChartMarketId, setSelectedChartMarketId] = useState('');
+  const [isAdmin, setIsAdmin] = useState(() => false);
 
-  // Time tracker with high-speed automated background sync tracking dpboss.net & goldenmatka.in
-  const [currentISTTime, setCurrentISTTime] = useState<Date>(getCurrentIST());
-  const [syncCountdown, setSyncCountdown] = useState<number>(5);
-  const [lastSyncTime, setLastSyncTime] = useState<string>('Just now');
-  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [currentISTTime, setCurrentISTTime] = useState(getCurrentIST());
+  const [syncCountdown, setSyncCountdown] = useState(5);
+  const [lastSyncTime, setLastSyncTime] = useState('Just now');
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     fetchLiveResults();
+  }, []);
     const timer = setInterval(() => {
       setSyncCountdown((prev) => {
         if (prev <= 1) {
