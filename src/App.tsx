@@ -7,7 +7,7 @@ import { defaultMarkets, generateSeedJodiChart, getCurrentIST, getISTDateString,
 import { Market, JodiRecord } from './types';
 import { Crown, Flame, Star, Trophy, MessageSquare, Zap, ShieldCheck, RefreshCw, ChevronRight, Wifi, Terminal, Cpu, Database, Radio } from 'lucide-react';
 const fetchLiveResults = () => {
-  fetch('https://satta-backend-duqq.onrender.com/api/results')
+  fetch('https://matka-backend-duqq.onrender.com/api/results')
     .then(res => res.json())
     .then(data => console.log("Live Results Connected:", data))
     .catch(err => console.error(err));
