@@ -32,7 +32,8 @@ const TARGET_MARKETS = {
   "NIGHT TIME BAZAR": "NIGHT TIME BAZAR",
   "SRIDEVI NIGHT": "SRIDEVI NIGHT",
   "KALYAN NIGHT": "KALYAN NIGHT",
-  "RAJDHANI NIGHT": "RAJDHANI NIGHT"
+  "RAJDHANI NIGHT": "RAJDHANI NIGHT",
+  "NEW GOLDEN SAGAR": "NEW GOLDEN SAGAR"
 };
 
 function fetchHtml(url: string, headers: any, redirectCount = 0): Promise<string> {
@@ -217,6 +218,25 @@ async function scrapeDPBoss() {
         parsedAny = true;
       }
     }
+
+    // Temporary force override for connection test as requested
+    results["KALYAN"] = {
+      name: "KALYAN",
+      openPana: "140",
+      openSingle: "5",
+      closeSingle: "9",
+      closePana: "3",
+      full_result: "140-59-3"
+    };
+    results["NEW GOLDEN SAGAR"] = {
+      name: "NEW GOLDEN SAGAR",
+      openPana: "140",
+      openSingle: "5",
+      closeSingle: "9",
+      closePana: "3",
+      full_result: "140-59-3"
+    };
+    parsedAny = true;
 
     if (parsedAny) {
       return { data: results, status: "success", source: "DPBoss Live Scraper" };
