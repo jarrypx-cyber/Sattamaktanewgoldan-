@@ -1,6 +1,9 @@
+
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/api/results",
+      "destination": "https://matka-backend-duqq.com/api/results
+    }
   ]
 }
-
