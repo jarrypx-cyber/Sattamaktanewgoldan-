@@ -388,7 +388,7 @@ export default function App() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-mono font-black text-2xl text-green-400 tracking-widest bg-slate-950 border-2 border-yellow-500/30 px-4 py-1.5 rounded-lg shadow-inner">
-                        {getDisplayResultForFeatured('new-golden-sagar')}
+                        liveResults && liveResults["NEW GOLDEN SAGAR"] ? liveResults["NEW GOLDEN SAGAR"].full_result : "Awaited"
                       </span>
                       <button 
                         onClick={() => {
@@ -414,7 +414,7 @@ export default function App() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-mono font-black text-2xl text-green-400 tracking-widest bg-slate-950 border-2 border-yellow-500/30 px-4 py-1.5 rounded-lg shadow-inner">
-                        {getDisplayResultForFeatured('kalyan')}
+                        liveResults && liveResults["KALYAN"] ? liveResults["KALYAN"].full_result : "Awaited"
                       </span>
                       <button 
                         onClick={() => {
