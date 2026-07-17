@@ -23,34 +23,7 @@ export default function App() {
   const [lastSyncTime, setLastSyncTime] = useState('Just now');
   const [isSyncing, setIsSyncing] = useState(false);
 
-  useEffect(() => {
-    fetchLiveResults();
-  }, []);
-    const timer = setInterval(() => {
-      setSyncCountdown((prev) => {
-        if (prev <= 1) {
-          setIsSyncing(true);
-          const nowIST = getCurrentIST();
-          setCurrentISTTime(nowIST);
-
-          setTimeout(() => {
-            setIsSyncing(false);
-            const timeStr = nowIST.toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: true
-            });
-            setLastSyncTime(timeStr);
-          }, 800);
-
-          return 5;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    
 
   const todayStr = getISTDateString(currentISTTime);
   const currentMinutes = currentISTTime.getHours() * 60 + currentISTTime.getMinutes();
