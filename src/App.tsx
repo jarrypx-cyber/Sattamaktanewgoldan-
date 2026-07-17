@@ -387,7 +387,7 @@ export default function App() {
                       <strong className="text-yellow-400 text-lg font-black tracking-wide">NEW GOLDEN SAGAR</strong>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="font-mono font-black text-2xl text-green-400 tracking-widest bg-slate-950 border-2 border-yellow-500/30 px-4 py-1.5 rounded-lg shadow-inner">
+                      <span></span>/span> className="font-mono font-black text-2xl text-green-400 tracking-widest bg-slate-950 border-2 border-yellow-500/30 px-4 py-1.5 rounded-lg shadow-inner">
                         liveResults && liveResults["NEW GOLDEN SAGAR"] ? liveResults["NEW GOLDEN SAGAR"].full_result : "Awaited"
                       </span>
                       <button 
@@ -412,22 +412,20 @@ export default function App() {
                       <span className="text-xs bg-yellow-500 text-slate-950 font-black px-2 py-0.5 rounded uppercase tracking-wider">LIVE</span>
                       <strong className="text-yellow-400 text-lg font-black tracking-wide">KALYAN</strong>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono font-black text-2xl text-green-400 tracking-widest bg-slate-950 border-2 border-yellow-500/30 px-4 py-1.5 rounded-lg shadow-inner">
-                        liveResults && liveResults["KALYAN"] ? liveResults["KALYAN"].full_result : "Awaited"
-                      </span>
-                      <button 
-                        onClick={() => {
-                          setCurrentISTTime(getCurrentIST());
-                          setAppToast({ text: "Kalyan Live result synced!", icon: "🔄" });
-                        }}
-                        className="bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition shadow-lg border border-red-500 active:scale-95"
-                      >
-                        REFRESH
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                              <div className="flex items-center gap-3">
+            <span className="font-mono font-bold text-2xl text-green-400 tracking-widest bg-slate-950/50 px-2 py-0.5 rounded">
+              {liveResults && liveResults["KALYAN"] ? liveResults["KALYAN"].full_result : "Awaited"}
+            </span>
+            <button
+              onClick={() => {
+                setCurrentISTTime(getCurrentIST());
+                setAppToast({ text: "Kalyan Live result synced!", icon: "🔄" });
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold"
+            >
+              REFRESH
+            </button>
+          </div>
               </div>
 
               {/* 🟢 Congo Chart Navigation Quick Buttons */}
