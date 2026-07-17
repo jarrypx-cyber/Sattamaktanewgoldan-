@@ -1,25 +1,22 @@
-import React, { useState, useEffect, useMemo } from 'react';
+  //import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './components/Header';
 import JodiChart from './components/JodiChart';
 import AdminPanel from './components/AdminPanel';
-import { defaultMarkets, generateSeedJodiChart, getCurrentIST, getISTDateString, getLiveMarketResult, parseTimeToMinutes } from './data';
-import { Market, JodiRecord } from './types';
-import { Crown, Flame, Star, Trophy, MessageSquare, Zap, ShieldCheck, RefreshCw, ChevronRight, Wifi, Terminal, Cpu, Database, Radio } from 'lucide-react';
+import { defaultMarkets, getCurrentIST } from './data';
+import { Market } from './types';
+import { Flame, Terminal, Database, Radio } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('live');
   const [selectedChartMarketId, setSelectedChartMarketId] = useState<string>('kalyan');
   const [isAdmin, setIsAdmin] = useState<boolean>(() => localStorage.getItem('satta_admin_logged_in') === 'true');
-  const [markets, setMarkets] = useState<Market[]>(defaultMarkets);
 
-  // Time tracker with high-speed automated background sync tracking
   const [currentISTTime, setCurrentISTTime] = useState<Date>(getCurrentIST());
   const [syncCountdown, setSyncCountdown] = useState<number>(5);
   const [lastSyncTime, setLastSyncTime] = useState<string>('Just now');
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  // Auto-Sync and Countdown Logic
   useEffect(() => {
     const timer = setInterval(() => {
       setSyncCountdown((prev) => {
@@ -27,239 +24,190 @@ export default function App() {
           setIsSyncing(true);
           const nowIST = getCurrentIST();
           setCurrentISTTime(nowIST);
-
-          // Simulated high-speed micro-delay for realistic UI feedback
           setTimeout(() => {
             setIsSyncing(false);
-            const timeStr = nowIST.toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: true
-            });
-            setLastSyncTime(timeStr);
+            setLastSyncTime(nowIST.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }));
           }, 800);
-
-          return 5; // Reset countdown to 5 seconds
+          return 5;
         }
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(timer);
   }, []);
 
-  // Sync hander triggerable manually
-  const handleManualSync = () => {
-    if (isSyncing) return;
-    setIsSyncing(true);
-    const nowIST = getCurrentIST();
-    setCurrentISTTime(nowIST);
-    setTimeout(() => {
-      setIsSyncing(false);
-      setLastSyncTime(nowIST.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true
-      }));
-      setSyncCountdown(5);
-    }, 600);
+  const [googleVerification] = useState<string>(() => localStorage.getItem('satta_google_verification') || '');
+  const [appToast, setAppToast] = useState<{ text: string; icon: string } | null>(null);
+
+  useEffect(() => {
+    if (!appToast) return;
+    const timer = setTimeout(() => setAppToast(null), 3000);
+    return () => clearInterval(timer);
+  }, [appToast]);
+
+  const [markets, setMarkets] = useState<Market[]>(() => {
+    const saved = localStorage.getItem('satta_markets');
+    return saved ? JSON.parse(saved) : defaultMarkets;
+  });
+
+  const getCurrentTimeFormatted = () => {
+    const d = new Date();
+    let hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const seconds = String(d.getSeconds()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    return `${String(hours).padStart(2, '0')}:${minutes}:${seconds} ${ampm}`;
   };
 
-  // Memoized Chart data to avoid heavy regeneration on every state change
-  const selectedChartData = useMemo(() => {
-    return generateSeedJodiChart(selectedChartMarketId);
-  }, [selectedChartMarketId]);
+  // Dynamic live-fetching with multiple backup route fallbacks
+  useEffect(() => {
+    const fetchLiveResults = async () => {
+      const potentialEndpoints = [
+        "https://matka-backend-o9td.onrender.com/api/results",
+        "https://matka-backend-o9td.onrender.com/results",
+        "https://matka-backend-o9td.onrender.com/api/data"
+      ];
+
+      let responseData = null;
+
+      for (const url of potentialEndpoints) {
+        try {
+          const response = await fetch(url);
+          if (response.ok) {
+            const result = await response.json();
+            if (result && (result.data || result.status === "success")) {
+              responseData = result.data || result;
+              break;
+            }
+          }
+        } catch (e) {
+          console.log(`Failed fetching from ${url}, trying next...`);
+        }
+      }
+
+      if (responseData) {
+        setMarkets((prevMarkets) => {
+          const updated = prevMarkets.map((m) => {
+            let apiMarket = null;
+            const upperName = m.name.toUpperCase();
+            
+            if (m.id === 'kalyan' && responseData.KALYAN) {
+              apiMarket = responseData.KALYAN;
+            } else if (m.id === 'time-bazar' && responseData['TIME BAZAR']) {
+              apiMarket = responseData['TIME BAZAR'];
+            } else if (m.id === 'milan-day' && responseData['MILAN DAY']) {
+              apiMarket = responseData['MILAN DAY'];
+            } else if (responseData[upperName]) {
+              apiMarket = responseData[upperName];
+            }
+
+            if (apiMarket && apiMarket.openSingle && !String(apiMarket.openSingle).toLowerCase().includes('await')) {
+              return {
+                ...m,
+                openPana: apiMarket.openPana || m.openPana,
+                openSingle: apiMarket.openSingle,
+                closeSingle: apiMarket.closeSingle,
+                closePana: apiMarket.closePana || m.closePana,
+                status: 'CLOSED',
+                lastUpdated: `Live DPBoss Sync at ${getCurrentTimeFormatted()}`
+              };
+            }
+            return m;
+          });
+          localStorage.setItem('satta_markets', JSON.stringify(updated));
+          return updated;
+        });
+      }
+    };
+
+    fetchLiveResults();
+    const interval = setInterval(fetchLiveResults, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-amber-500 selection:text-slate-900">
-      {/* Top Real-time Bar */}
-      <div className="bg-slate-900 border-b border-slate-800 text-xs py-2 px-4 flex flex-wrap justify-between items-center gap-2">
-        <div className="flex items-center gap-2">
-          <span className="flex h-2 w-2 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span className="text-slate-400">Live Syncing with API Nodes:</span>
-          <span className="font-mono text-emerald-400 font-semibold flex items-center gap-1">
-            <Wifi className="w-3.5 h-3.5" /> ONLINE
-          </span>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <span className="text-slate-400 font-mono">
-            IST: {currentISTTime.toLocaleTimeString('en-US', { hour12: true })}
-          </span>
-          <div className="flex items-center gap-2 border-l border-slate-800 pl-4">
-            <span className="text-slate-500">Next update in: <strong className="text-amber-400">{syncCountdown}s</strong></span>
-            <button 
-              onClick={handleManualSync}
-              disabled={isSyncing}
-              className={`p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95 transition-all ${isSyncing ? 'animate-spin text-amber-500' : ''}`}
-              title="Force Sync Now"
-            >
-              <RefreshCw className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 font-sans antialiased">
+      <AnimatePresence>
+        {appToast && (
+          <motion.div initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 16 }} exit={{ opacity: 0 }} className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-neutral-900 border border-amber-500/30 text-amber-400 px-5 py-3 rounded-xl shadow-2xl">
+            <span className="font-semibold text-sm">{appToast.text}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Main Header Component */}
-      <Header isAdmin={isAdmin} setIsAdmin={setIsAdmin} activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Header isAdmin={isAdmin} setIsAdmin={setIsAdmin} />
 
-      {/* Core Layout */}
-      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <div className="flex bg-neutral-900/60 p-1 rounded-xl border border-neutral-800">
+          <button onClick={() => setActiveTab('live')} className={`flex-1 py-3 rounded-lg font-bold text-sm ${activeTab === 'live' ? 'bg-amber-500 text-black' : 'text-neutral-400'}`}><Flame className="inline w-4 h-4 mr-2"/>LIVE RESULTS</button>
+          <button onClick={() => setActiveTab('charts')} className={`flex-1 py-3 rounded-lg font-bold text-sm ${activeTab === 'charts' ? 'bg-amber-500 text-black' : 'text-neutral-400'}`}><Database className="inline w-4 h-4 mr-2"/>JODI CHARTS</button>
+          <button onClick={() => setActiveTab('admin')} className={`flex-1 py-3 rounded-lg font-bold text-sm ${activeTab === 'admin' ? 'bg-amber-500 text-black' : 'text-neutral-400'}`}><Terminal className="inline w-4 h-4 mr-2"/>PANEL CONTROL</button>
+        </div>
+
         <AnimatePresence mode="wait">
           {activeTab === 'live' && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="space-y-6"
-            >
-              {/* Dashboard Hero Widgets */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/20 p-5 rounded-2xl relative overflow-hidden group">
-                  <div className="absolute right-3 top-3 opacity-10 group-hover:scale-110 transition-transform">
-                    <Trophy className="w-24 h-24 text-amber-400" />
+            <motion.div key="live" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid gap-4 sm:grid-cols-2">
+              {markets.map((market) => (
+                <div key={market.id} className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 relative overflow-hidden group">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="font-extrabold text-lg text-neutral-100">{market.name}</h3>
+                      <p className="text-xs text-neutral-500 mt-1">Open: {market.openTime} | Close: {market.closeTime}</p>
+                    </div>
+                    <span className="bg-amber-500/10 text-amber-500 text-[10px] font-black px-2 py-1 rounded border border-amber-500/20">{market.status}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-amber-400 font-semibold mb-2">
-                    <Crown className="w-5 h-5 animate-bounce" /> Super Fast Live Result
-                  </div>
-                  <p className="text-sm text-slate-400">Directly fetched from Golden Matka & DPBoss API relays.</p>
-                  <p className="text-xs text-amber-500/80 mt-4 font-mono">Last updated: {lastSyncTime}</p>
-                </div>
 
-                <div className="bg-gradient-to-br from-emerald-500/10 to-transparent border border-emerald-500/20 p-5 rounded-2xl relative overflow-hidden group">
-                  <div className="absolute right-3 top-3 opacity-10 group-hover:scale-110 transition-transform">
-                    <ShieldCheck className="w-24 h-24 text-emerald-400" />
+                  <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-4 text-center my-3">
+                    <div className="flex justify-center items-center gap-3 text-2xl font-black font-mono">
+                      <span className="text-neutral-400">{market.openPana || '---'}</span>
+                      <span className="text-amber-500 text-3xl font-black bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/30">
+                        {market.openSingle ?? '-'}{market.closeSingle ?? '-'}
+                      </span>
+                      <span className="text-neutral-400">{market.closePana || '---'}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-emerald-400 font-semibold mb-2">
-                    <Zap className="w-5 h-5 text-emerald-400" /> Guaranteed Accuracy
-                  </div>
-                  <p className="text-sm text-slate-400">Advanced matching system prevents human entry errors instantly.</p>
-                  <p className="text-xs text-emerald-500/80 mt-4 font-mono">Double Verification System Enabled</p>
-                </div>
 
-                <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl relative overflow-hidden group">
-                  <div className="absolute right-3 top-3 opacity-10 group-hover:scale-110 transition-transform">
-                    <Cpu className="w-24 h-24 text-blue-400" />
-                  </div>
-                  <div className="flex items-center gap-2 text-blue-400 font-semibold mb-2">
-                    <Terminal className="w-5 h-5" /> Edge Node System
-                  </div>
-                  <p className="text-sm text-slate-400">Latency-free architecture guarantees sub-millisecond updates.</p>
-                  <div className="flex gap-2 mt-4 text-[10px] font-mono text-slate-500">
-                    <span className="px-1.5 py-0.5 bg-slate-950 border border-slate-800 rounded">v3.4.0-edge</span>
-                    <span className="px-1.5 py-0.5 bg-slate-950 border border-slate-800 rounded">12ms RTT</span>
+                  <div className="flex justify-between items-center text-[11px] text-neutral-500 mt-3 pt-2 border-t border-neutral-800/40">
+                    <span>{market.lastUpdated || 'Waiting for live sync...'}</span>
+                    <button onClick={() => setAppToast({ text: `${market.name} Refreshing...`, icon: "🔄" })} className="text-amber-500 font-bold">REFRESH</button>
                   </div>
                 </div>
-              </div>
-
-              {/* Markets Grid Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {markets.map((market) => {
-                  const liveResult = getLiveMarketResult(market, currentISTTime);
-                  return (
-                    <motion.div
-                      layout
-                      key={market.id}
-                      className="bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition-all shadow-lg hover:shadow-2xl hover:shadow-amber-500/5 group"
-                    >
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h3 className="font-bold text-lg text-slate-100 flex items-center gap-1.5">
-                            {market.name}
-                            {liveResult.isLive && (
-                              <span className="flex h-2.5 w-2.5">
-                                <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-red-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-                              </span>
-                            )}
-                          </h3>
-                          <p className="text-xs text-slate-500 font-mono">
-                            Open: {market.openTime} | Close: {market.closeTime}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            setSelectedChartMarketId(market.id);
-                            setActiveTab('charts');
-                          }}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-400 hover:text-amber-400 transition-all flex items-center gap-1"
-                        >
-                          Chart <ChevronRight className="w-3 h-3" />
-                        </button>
-                      </div>
-
-                      {/* Displaying Live Numbers */}
-                      <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-4 text-center my-3 group-hover:border-slate-700/50 transition-colors">
-                        <div className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-1">
-                          {liveResult.isLive ? '🔴 Current Result' : '🏁 Closed Result'}
-                        </div>
-                        <div className="text-3xl font-black font-mono tracking-wider text-amber-400">
-                          {liveResult.openPanna || '***'}-{liveResult.jodi || '**'}-{liveResult.closePanna || '***'}
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
+              ))}
             </motion.div>
           )}
 
           {activeTab === 'charts' && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-            >
-              <div className="mb-4 flex flex-wrap gap-2 items-center justify-between">
-                <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-                  <Database className="w-5 h-5 text-amber-500" /> Historical Jodi Panel
-                </h2>
-                <select
-                  value={selectedChartMarketId}
-                  onChange={(e) => setSelectedChartMarketId(e.target.value)}
-                  className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-sm font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                >
-                  {markets.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
+            <motion.div key="charts" className="space-y-6">
+              <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
+                <select value={selectedChartMarketId} onChange={(e) => setSelectedChartMarketId(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 text-neutral-100 rounded-xl px-4 py-3 font-bold text-sm">
+                  {markets.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
               </div>
-
-              {/* Chart Component rendering state-driven data */}
-              <JodiChart marketId={selectedChartMarketId} data={selectedChartData} />
+              <JodiChart marketId={selectedChartMarketId} />
             </motion.div>
           )}
 
-          {activeTab === 'admin' && isAdmin && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-            >
-              <AdminPanel markets={markets} setMarkets={setMarkets} />
+          {activeTab === 'admin' && (
+            <motion.div key="admin">
+              <AdminPanel markets={markets} setMarkets={setMarkets} googleVerification={googleVerification} setGoogleVerification={() => {}} />
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
-      {/* Modern High-Performance Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 mt-12 py-8 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
+      <footer className="border-t border-neutral-900 bg-neutral-950 py-8 text-center space-y-4">
+        <div className="max-w-md mx-auto flex items-center justify-between text-[11px] text-neutral-500 bg-neutral-900 px-4 py-2.5 rounded-xl">
           <div className="flex items-center gap-2">
-            <Radio className="w-4 h-4 text-amber-500 animate-pulse" />
-            <span className="font-semibold text-slate-400">DPBoss-Ultra Server Engine</span>
+            <Radio className={`w-3.5 h-3.5 text-amber-500 ${isSyncing ? 'animate-ping' : ''}`} />
+            <span>Sync: <b className="text-neutral-400">{syncCountdown}s</b></span>
           </div>
-          <p>© {new Date().getFullYear()} Satta Matka Premium API System. Built with Vite, React & Framer Motion.</p>
+          <div>Last Sync: <b className="text-neutral-400">{lastSyncTime}</b></div>
         </div>
       </footer>
     </div>
   );
-      }
+                      }
+Dynamic live-fetching with multiple backup route fallbacks
+  
