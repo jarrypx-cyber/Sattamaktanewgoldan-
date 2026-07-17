@@ -6,6 +6,12 @@ import AdminPanel from './components/AdminPanel';
 import { defaultMarkets, generateSeedJodiChart, getCurrentIST, getISTDateString, getLiveMarketResult, parseTimeToMinutes } from './data';
 import { Market, JodiRecord } from './types';
 import { Crown, Flame, Star, Trophy, MessageSquare, Zap, ShieldCheck, RefreshCw, ChevronRight, Wifi, Terminal, Cpu, Database, Radio } from 'lucide-react';
+const fetchLiveResults = () => {
+  fetch('https://matka-backend-duqq.onrender.com/api/results
+    .then(res => res.json())
+    .then(data => console.log("Live Results Connected:", data))
+    .catch(err => console.error(err));
+};
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('live');
