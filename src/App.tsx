@@ -9,15 +9,19 @@ import { Crown, Flame, Star, Trophy, MessageSquare, Zap, ShieldCheck, RefreshCw,
 const fetchLiveResults = () => {
   fetch('https://' + 'matka-backend-duqq' + '.onrender.com' + '/api/results')
     .then(res => res.json())
-    .then(data => console.log("Live Results Connected:", data))
+    .then(json => {
+      console.log("Live Results Connected:", json);
+      if (json && json.data) {
+        setLiveResults(json.data);
+      }
+    })
     .catch(err => console.error(err));
 };
-
 export default function App() {
   const [activeTab, setActiveTab] = useState('live');
   const [selectedChartMarketId, setSelectedChartMarketId] = useState('');
-  const [isAdmin, setIsAdmin] = useState(() => false);
-
+  const [liveResults, setLiveResults] = useState<any>(null);
+  
   const [currentISTTime, setCurrentISTTime] = useState(getCurrentIST());
   const [syncCountdown, setSyncCountdown] = useState(5);
   const [lastSyncTime, setLastSyncTime] = useState('Just now');
