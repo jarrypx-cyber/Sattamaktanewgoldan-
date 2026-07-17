@@ -1,4 +1,4 @@
-  //import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './components/Header';
 import JodiChart from './components/JodiChart';
@@ -61,13 +61,13 @@ export default function App() {
     return `${String(hours).padStart(2, '0')}:${minutes}:${seconds} ${ampm}`;
   };
 
-  // Dynamic live-fetching with multiple backup route fallbacks
+  // Live-fetching synced to the working Render server
   useEffect(() => {
     const fetchLiveResults = async () => {
       const potentialEndpoints = [
-        "https://matka-backend-o9td.onrender.com/api/results",
-        "https://matka-backend-o9td.onrender.com/results",
-        "https://matka-backend-o9td.onrender.com/api/data"
+        "https://matka-backend-duqq.onrender.com",
+        "https://matka-backend-duqq.onrender.com/api/results",
+        "https://matka-backend-o9td.onrender.com/api/results"
       ];
 
       let responseData = null;
@@ -77,13 +77,13 @@ export default function App() {
           const response = await fetch(url);
           if (response.ok) {
             const result = await response.json();
-            if (result && (result.data || result.status === "success")) {
+            if (result && (result.data || result.KALYAN || result.status === "success")) {
               responseData = result.data || result;
               break;
             }
           }
         } catch (e) {
-          console.log(`Failed fetching from ${url}, trying next...`);
+          console.log(`Failed fetching from ${url}`);
         }
       }
 
@@ -208,6 +208,5 @@ export default function App() {
       </footer>
     </div>
   );
-                      }
-Dynamic live-fetching with multiple backup route fallbacks
-  
+}
+                      
