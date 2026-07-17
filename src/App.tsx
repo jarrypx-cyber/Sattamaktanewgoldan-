@@ -25,6 +25,7 @@ export default function App() {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   useEffect(() => {
+    fetchLiveResults();
     const timer = setInterval(() => {
       setSyncCountdown((prev) => {
         if (prev <= 1) {
