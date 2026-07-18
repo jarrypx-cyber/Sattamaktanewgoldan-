@@ -237,7 +237,7 @@ export default function App() {
     }, 1500);
   };
 
-  // // Initialize Jodi Records State
+// // Initialize Jodi Records State
 const [jodiRecords, setJodiRecords] = useState<JodiRecord[]>(() => {
   const saved = localStorage.getItem('satta_jodi_records');
   if (saved) {
@@ -247,15 +247,20 @@ const [jodiRecords, setJodiRecords] = useState<JodiRecord[]>(() => {
       
       if (filtered.length < 200) {
         const fresh = generateSeedJodiChart();
-        return fresh; // Agar filter ke baad 200 se kam hain toh fresh data bhejein
+        return fresh;
       }
       
       return filtered;
     } catch (e) {
       console.error("Error parsing jodi records:", e);
-      return generateSeedJodiChart(); // Error aane par fallback data
+      return generateSeedJodiChart();
     }
-  }
-  return generateSeedJodiChart(); // <--- Is line ki spelling check karein
+    }
+  return generateSeedJodiChart();
 });
+
+}
+
   
+
+
