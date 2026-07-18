@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import Admin from './Admin'; // Yahan se .tsx hata diya hai taaki build safe rahe
 
-// Supabase Connection Setup
 const SUPABASE_URL = "https://lwkdudqnbwxlnmkudpq.supabase.co";
 const SUPABASE_KEY = "Sb_publishable_GFMh9Pa3nHXmCojo1AWZzA_BRLTTRQs";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -22,8 +22,18 @@ interface Market {
 function App() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
 
-  // Realtime Data Fetching
+  // URL location badalna track karne ke liye
+  useEffect(() => {
+    const handleLocationChange = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+  }, []);
+
+  // Realtime Supabase Data Fetching
   useEffect(() => {
     const fetchMarkets = async () => {
       const { data, error } = await supabase.from('markets').select('*');
@@ -35,7 +45,6 @@ function App() {
 
     fetchMarkets();
 
-    // Live Listeners for Instant Update (1 Second Updates!)
     const subscription = supabase
       .channel('public:markets')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'markets' }, (payload) => {
@@ -49,6 +58,11 @@ function App() {
       supabase.removeChannel(subscription);
     };
   }, []);
+
+  // AGAR URL MEIN /admin LIKHA HAI TOH DIRECT ADMIN PANEL ROUTE KAREIN
+  if (currentPath === '/admin') {
+    return <Admin />;
+  }
 
   if (loading) {
     return (
@@ -73,7 +87,7 @@ function App() {
           <div key={market.id} style={{ background: '#1e293b', borderRadius: '12px', padding: '15px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', border: '1px solid #334155' }}>
             
             {/* Market Title & Times */}
-            <div style={{ display: 'flex', justifyContent: 'between', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <div>
                 <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '18px' }}>{market.name}</h3>
                 <span style={{ fontSize: '12px', color: '#94a3b8' }}>Open: {market.openTime} | Close: {market.closeTime}</span>
