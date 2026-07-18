@@ -242,25 +242,20 @@ const [jodiRecords, setJodiRecords] = useState<JodiRecord[]>(() => {
   const saved = localStorage.getItem('satta_jodi_records');
   if (saved) {
     try {
-      const parsed = JSON.parse(saved) as JodiRecord[];
-      const filtered = parsed.filter((r) => defaultMarkets.some((dm) => dm.id === r.id));
-      
-      if (filtered.length < 200) {
-        const fresh = generateSeedJodiChart();
-        return fresh;
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && typeof defaultMarkets !== 'undefined' && Array.isArray(defaultMarkets)) {
+        const filtered = parsed.filter((r) => r && defaultMarkets.some((dm) => dm && dm.id === r.id));
+        
+        if (filtered.length < 200) {
+          return typeof generateSeedJodiChart === 'function' ? generateSeedJodiChart() : [];
+        }
+        return filtered;
       }
-      
-      return filtered;
     } catch (e) {
       console.error("Error parsing jodi records:", e);
-      return generateSeedJodiChart();
     }
-    }
-  return generateSeedJodiChart();
+  }
+  return typeof generateSeedJodiChart === 'function' ? generateSeedJodiChart() : [];
 });
 
 }
-
-  
-
-
