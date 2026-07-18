@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import Admin from './Admin'; // Yahan se .tsx hata diya hai taaki build safe rahe
+import Admin from './Admin.tsx'; // Yahan se .tsx hata diya hai taaki build safe rahe
 
 const SUPABASE_URL = "https://lwkdudqnbwxlnmkudpq.supabase.co";
 const SUPABASE_KEY = "Sb_publishable_GFMh9Pa3nHXmCojo1AWZzA_BRLTTRQs";
