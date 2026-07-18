@@ -35,6 +35,24 @@ const TARGET_MARKETS = {
   "RAJDHANI NIGHT": "RAJDHANI NIGHT",
   "NEW GOLDEN SAGAR": "NEW GOLDEN SAGAR"
 };
+// Local storage to hold live results temporarily in server memory
+let liveResults: Record<string, string> = {};
+
+// Route to handle updates from Admin Panel
+app.post("/api/update-result", (req, res) => {
+  const { market, result } = req.body;
+  if (!market || !result) {
+    return res.status(400).json({ success: false, message: "Market and result required" });
+  }
+  liveResults[market.toUpperCase()] = result;
+  return res.json({ success: true, data: liveResults });
+});
+
+// Route for Frontend to fetch results
+app.get("/api/get-results", (req, res) => {
+  return res.json(liveResults);
+});
+
 
 function fetchHtml(url: string, headers: any, redirectCount = 0): Promise<string> {
   if (redirectCount > 5) {
@@ -309,3 +327,31 @@ async function startServer() {
 }
 
 startServer();
+// Existing router for API merge
+app.get("/api/live-results", async (req, res) => {
+  try {
+    // 1. Pehle bahar ka automated data fetch karo
+    const scrapedData = await scrapeDPBoss();
+    
+    // 2. Ab check karo ki Admin Panel se koi manual data aaya hai kya
+    for (const key of Object.keys(TARGET_MARKETS)) {
+      if (liveResults[key]) {
+        // Agar admin ne number dala hai, toh scraper wale data ko hatakar admin ka data set karo
+        if (!scrapedData.results[key]) scrapedData.results[key] = { name: key };
+        scrapedData.results[key].full_result = liveResults[key];
+        
+        // Split strings if format is 140-59-3
+        const parts = liveResults[key].split('-');
+        if (parts.length === 3) {
+          scrapedData.results[key].openPana = parts[0];
+scrapedData.results[key].jodi = parts[1];
+scrapedData.results[key].closePana = parts[2];
+          
+        }
+      }
+    }
+    return res.json(scrapedData);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
