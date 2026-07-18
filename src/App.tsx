@@ -10,7 +10,7 @@ import { Flame, Terminal, Database, Radio } from 'lucide-react';
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('live');
   const [selectedChartMarketId, setSelectedChartMarketId] = useState<string>('kalyan');
-  const [isAdmin, setIsAdmin] = useState<boolean>(() => localStorage.getItem('satta_admin_logged_in') === 'true');
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
   const [currentISTTime, setCurrentISTTime] = useState<Date>(getCurrentIST());
   const [syncCountdown, setSyncCountdown] = useState<number>(5);
