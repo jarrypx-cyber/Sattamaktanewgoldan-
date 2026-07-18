@@ -21,9 +21,10 @@ interface Market {
 function App() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
   
-  // Admin States
+  // PERMANENT FIX: Hash location track karega jo 404 nahi aane dega
+  const [currentHash, setCurrentHash] = useState(window.location.hash);
+  
   const [editingMarket, setEditingMarket] = useState<Market | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newMarket, setNewMarket] = useState<Market>({
@@ -31,11 +32,11 @@ function App() {
   });
 
   useEffect(() => {
-    const handleLocationChange = () => {
-      setCurrentPath(window.location.pathname);
+    const handleHashChange = () => {
+      setCurrentHash(window.location.hash);
     };
-    window.addEventListener('popstate', handleLocationChange);
-    return () => window.removeEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
   const fetchMarkets = async () => {
@@ -47,7 +48,7 @@ function App() {
     } catch (err) {
       console.error(err);
     }
-    setLoading(false); // Ye har haal mein loading band karega
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -65,7 +66,6 @@ function App() {
     };
   }, []);
 
-  // NEW MARKET ADD KARNE KA FUNCTION
   const handleAddMarket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMarket.name) return alert("Market Name jaruri hai!");
@@ -81,12 +81,9 @@ function App() {
       setShowAddForm(false);
       setNewMarket({ name: '', openTime: '', closeTime: '', openPana: '***', openSingle: '*', closeSingle: '*', closePana: '***', status: 'LIVE', lastUpdated: '--' });
       fetchMarkets();
-    } else {
-      alert("Error adding market: " + error.message);
     }
   };
 
-  // UPDATE FUNCTION
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingMarket || !editingMarket.id) return;
@@ -120,34 +117,32 @@ function App() {
     );
   }
 
-  // ================= ADMIN VIEW =================
-  if (currentPath === '/admin') {
+  // ================= ADMIN VIEW (AB HASH SE MILLEGA) =================
+  if (currentHash === '#/admin' || window.location.pathname === '/admin') {
     return (
       <div style={{ background: '#0f172a', minHeight: '100vh', color: 'white', fontFamily: 'sans-serif', padding: '15px' }}>
         <div style={{ textAlign: 'center', padding: '15px 0', borderBottom: '2px solid #ef4444', marginBottom: '20px' }}>
           <h1 style={{ margin: 0, color: '#ef4444', fontSize: '26px' }}>🔑 SECRET ADMIN PANEL</h1>
-          <button onClick={() => setShowAddForm(!showAddForm)} style={{ marginTop: '10px', background: '#22c55e', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-            {showAddForm ? "❌ CLOSE ADD FORM" : "➕ ADD NEW MARKET (Kalyan, etc.)"}
+          <button onClick={() => setShowAddForm(!showAddForm)} style={{ marginTop: '10px', background: '#22c55e', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px', fontWeight: 'bold' }}>
+            {showAddForm ? "❌ CLOSE ADD FORM" : "➕ ADD NEW MARKET"}
           </button>
         </div>
 
-        {/* NAYA MARKET BANANE KA FORM */}
         {showAddForm && (
           <div style={{ background: '#1e293b', border: '2px solid #22c55e', borderRadius: '12px', padding: '15px', marginBottom: '20px', maxWidth: '500px', margin: '0 auto 20px auto' }}>
-            <h3 style={{ margin: '0 0 15px 0', color: '#22c55e' }}>Add New Market</h3>
+            <h3>Add New Market</h3>
             <form onSubmit={handleAddMarket} style={{ display: 'grid', gap: '10px' }}>
-              <input type="text" placeholder="Market Name (e.g., KALYAN)" value={newMarket.name} onChange={(e) => setNewMarket({...newMarket, name: e.target.value})} style={{ padding: '8px', background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '6px' }} required />
-              <input type="text" placeholder="Open Time (e.g., 04:00 PM)" value={newMarket.openTime} onChange={(e) => setNewMarket({...newMarket, openTime: e.target.value})} style={{ padding: '8px', background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '6px' }} />
-              <input type="text" placeholder="Close Time (e.g., 06:00 PM)" value={newMarket.closeTime} onChange={(e) => setNewMarket({...newMarket, closeTime: e.target.value})} style={{ padding: '8px', background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '6px' }} />
-              <button type="submit" style={{ background: '#22c55e', padding: '10px', borderRadius: '6px', fontWeight: 'bold', border: 'none', color: 'white', cursor: 'pointer' }}>CREATE MARKET</button>
+              <input type="text" placeholder="Market Name" value={newMarket.name} onChange={(e) => setNewMarket({...newMarket, name: e.target.value})} style={{ padding: '8px', background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '6px' }} required />
+              <input type="text" placeholder="Open Time" value={newMarket.openTime} onChange={(e) => setNewMarket({...newMarket, openTime: e.target.value})} style={{ padding: '8px', background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '6px' }} />
+              <input type="text" placeholder="Close Time" value={newMarket.closeTime} onChange={(e) => setNewMarket({...newMarket, closeTime: e.target.value})} style={{ padding: '8px', background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '6px' }} />
+              <button type="submit" style={{ background: '#22c55e', padding: '10px', borderRadius: '6px', fontWeight: 'bold', border: 'none', color: 'white' }}>CREATE MARKET</button>
             </form>
           </div>
         )}
 
-        {/* EDITING FORM */}
         {editingMarket && (
           <div style={{ background: '#1e293b', border: '2px solid #ef4444', borderRadius: '12px', padding: '15px', marginBottom: '20px', maxWidth: '500px', margin: '0 auto 20px auto' }}>
-            <h3 style={{ margin: '0 0 15px 0', color: '#ef4444' }}>Editing: {editingMarket.name}</h3>
+            <h3>Editing: {editingMarket.name}</h3>
             <form onSubmit={handleUpdate} style={{ display: 'grid', gap: '10px' }}>
               <input type="text" placeholder="Open Pana" value={editingMarket.openPana} onChange={(e) => setEditingMarket({...editingMarket, openPana: e.target.value})} style={{ padding: '8px', background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '6px' }} />
               <input type="text" placeholder="Open Single" value={editingMarket.openSingle} onChange={(e) => setEditingMarket({...editingMarket, openSingle: e.target.value})} style={{ padding: '8px', background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '6px' }} />
@@ -165,9 +160,8 @@ function App() {
           </div>
         )}
 
-        {/* MARKETS LIST */}
         <div style={{ display: 'grid', gap: '12px', maxWidth: '500px', margin: '0 auto' }}>
-          {markets.length === 0 ? <p style={{ textAlign: 'center', color: '#94a3b8' }}>No markets found. Click "ADD NEW MARKET" above to create one!</p> : 
+          {markets.length === 0 ? <p style={{ textAlign: 'center' }}>No markets found. Add one!</p> : 
           markets.map((market) => (
             <div key={market.id} style={{ background: '#1e293b', padding: '12px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #334155' }}>
               <div>
@@ -182,7 +176,7 @@ function App() {
     );
   }
 
-  // ================= PUBLIC USER VIEW =================
+  // ================= PUBLIC VIEW =================
   return (
     <div style={{ background: '#0f172a', minHeight: '100vh', color: 'white', fontFamily: 'sans-serif', padding: '15px' }}>
       <div style={{ textAlign: 'center', padding: '20px 0', borderBottom: '2px solid #3b82f6', marginBottom: '20px' }}>
@@ -192,7 +186,7 @@ function App() {
       <div style={{ display: 'grid', gap: '15px', maxWidth: '600px', margin: '0 auto' }}>
         {markets.length === 0 ? (
           <div style={{ textAlign: 'center', color: '#94a3b8', padding: '20px' }}>
-            <h3>Welcome! Please open website/admin to add your first market.</h3>
+            <h3>Welcome! Please go to your dashboard to add data.</h3>
           </div>
         ) : (
           markets.map((market) => (
@@ -211,10 +205,6 @@ function App() {
                 <div style={{ fontSize: '32px', fontWeight: 'bold', letterSpacing: '4px', color: '#e2e8f0' }}>
                   {market.openPana}-{market.openSingle}{market.closeSingle}-{market.closePana}
                 </div>
-              </div>
-
-              <div style={{ textAlign: 'right', fontSize: '11px', color: '#64748b' }}>
-                Updated: {market.lastUpdated}
               </div>
             </div>
           ))
