@@ -1,44 +1,89 @@
-import express from "express";
-import path from "path";
-import { createServer as createViteServer } from "vite";
-import https from "https";
-
-// Allow connections to sites with expired/invalid SSL certificates (e.g. dpboss.net)
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+import express from 'express';
+import cors from 'cors';
+import * as cheerio from 'cheerio';
+import fetch from 'node-fetch';
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// Enable CORS for all routes
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  if (req.method === "OPTIONS") {
-    res.sendStatus(200);
-    return;
-  }
-  next();
-});
+app.use(cors());
+app.use(express.json());
 
+// Target Markets to Track
 const TARGET_MARKETS = {
-  KALYAN: "KALYAN",
-  "TIME BAZAR": "TIME BAZAR",
-  "MILAN DAY": "MILAN DAY",
-  "KALYAN MORNING": "KALYAN MORNING",
-  "MILAN MORNING": "MILAN MORNING",
-  "TIME BAZAR MORNING": "TIME BAZAR MORNING",
-  "NEW TIME BAZAR": "NEW TIME BAZAR",
-  "NIGHT TIME BAZAR": "NIGHT TIME BAZAR",
-  "SRIDEVI NIGHT": "SRIDEVI NIGHT",
-  "KALYAN NIGHT": "KALYAN NIGHT",
-  "RAJDHANI NIGHT": "RAJDHANI NIGHT",
-  "NEW GOLDEN SAGAR": "NEW GOLDEN SAGAR"
+  "MILAN MORNING": true,
+  "SRIDEVI": true,
+  "KALYAN MORNING": true,
+  "PADMAVATI": true,
+  "MADHUR MORNING": true,
+  "TIME BAZAR": true,
+  "TARA MUMBAI DAY": true,
+  "MILAN DAY": true,
+  "MAIN BAZAR CLASSIC": true,
+  "RAJDHANI DAY": true,
+  "SUPREME DAY": true,
+  "KALYAN": true,
+  "SRIDEVI NIGHT": true,
+  "MADHUR NIGHT": true,
+  "MINAKSHI NIGHT": true,
+  "MILAN NIGHT": true,
+  "RAJDHANI NIGHT": true,
+  "MAIN BAZAR": true,
+  "KALYAN NIGHT": true,
+  "SREEDEVI DAY": true,
+  "SUPREME NIGHT": true,
+  "KUBER DAY": true,
+  "KUBER NIGHT": true,
+  "KALYAN MARKET NIGHT": true,
+  "MAIN MARKET NIGHT": true,
+  "TIME BAZAR NIGHT": true,
+  "MORNING SYNDICATE": true,
+  "TSUNAMI DAY": true
 };
-// Local storage to hold live results temporarily in server memory
+
+// Global memory to store live results from Admin Panel
 let liveResults: Record<string, string> = {};
 
-// Route to handle updates from Admin Panel
+// Helper to clean scraped text
+function cleanText(text: string): string {
+  return text ? text.replace(/\s+/g, ' ').trim() : '';
+}
+
+// Function to Scrape External Data (Automatic Scraper)
+async function scrapeDPBoss() {
+  try {
+    const response = await fetch('https://dpbossx.net', {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+    });
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    const results: Record<string, any> = {};
+
+    $('div, tr, p').each((_, element) => {
+      const text = $(element).text().toUpperCase();
+      for (const market of Object.keys(TARGET_MARKETS)) {
+        if (text.includes(market)) {
+          // Extracts default pattern 123-45-678 if present
+          const match = text.match(/(\d{3})\s*-\s*(\d{2})\s*-\s*(\d{3})/);
+          if (match) {
+            results[market] = {
+              name: market,
+              full_result: `${match[1]}-${match[2]}-${match[3]}`,
+              openPana: match[1],
+              jodi: match[2],
+              closePana: match[3]
+            };
+          }
+        }
+      }
+    });
+    return { results };
+  } catch (error) {
+    return { results: {} };
+  }
+}
+
+// 1. ROUTE: Admin Panel updates results here
 app.post("/api/update-result", (req, res) => {
   const { market, result } = req.body;
   if (!market || !result) {
@@ -48,305 +93,29 @@ app.post("/api/update-result", (req, res) => {
   return res.json({ success: true, data: liveResults });
 });
 
-// Route for Frontend to fetch results
-app.get("/api/get-results", (req, res) => {
-  return res.json(liveResults);
-});
-
-
-function fetchHtml(url: string, headers: any, redirectCount = 0): Promise<string> {
-  if (redirectCount > 5) {
-    return Promise.reject(new Error("Too many redirects"));
-  }
-  return new Promise((resolve, reject) => {
-    const options = {
-      headers,
-      agent: new https.Agent({ rejectUnauthorized: false }), // Bypass certificate errors
-      timeout: 10000
-    };
-    const req = https.get(url, options, (res) => {
-      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        let redirectUrl = res.headers.location;
-        if (!redirectUrl.startsWith("http")) {
-          const parsedUrl = new URL(url);
-          redirectUrl = `${parsedUrl.protocol}//${parsedUrl.host}${redirectUrl}`;
-        }
-        resolve(fetchHtml(redirectUrl, headers, redirectCount + 1));
-        return;
-      }
-      let data = "";
-      res.on("data", (chunk) => {
-        data += chunk;
-      });
-      res.on("end", () => {
-        resolve(data);
-      });
-    });
-    req.on("error", (err) => {
-      reject(err);
-    });
-    req.on("timeout", () => {
-      req.destroy();
-      reject(new Error("Timeout fetching page"));
-    });
-  });
-}
-
-async function scrapeDPBoss() {
-  const url = "https://dpbossx.net/";
-  const headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-    "Cache-Control": "max-age=0",
-  };
-
-  const results: any = {};
-  for (const key of Object.keys(TARGET_MARKETS)) {
-    results[key] = {
-      name: key,
-      openPana: "???",
-      openSingle: "?",
-      closeSingle: "?",
-      closePana: "???",
-      full_result: "???-??-???"
-    };
-  }
-
+// 2. ROUTE: Unified endpoint for Frontend to fetch both Scraper & Admin Data
+app.get("/api/get-results", async (req, res) => {
   try {
-    const html = await fetchHtml(url, headers);
-    if (!html) {
-      return { data: results, status: "fallback", source: "DPBoss (Empty response)" };
+    let scrapedData = await scrapeDPBoss();
+    if (!scrapedData || !scrapedData.results) {
+      scrapedData = { results: {} };
     }
 
-    let parsedAny = false;
-
-    // Helper to find a pattern near the index of the market name
-    const findResultNear = (marketName: string): any => {
-      const escapedName = marketName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-      
-      // Try direct structured match first: <h4>MARKET</h4> <span>RESULT</span>
-      const regexDirect = new RegExp(`<h4>\\s*${escapedName}\\s*</h4>\\s*<span>\\s*([^<\\n\\r]+)\\s*</span>`, 'i');
-      const matchDirect = html.match(regexDirect);
-      if (matchDirect) {
-        const fullResultStr = matchDirect[1].trim();
-        const parts = fullResultStr.split('-');
-        if (parts.length === 3) {
-          const openPana = parts[0].trim();
-          const jodi = parts[1].trim();
-          const closePana = parts[2].trim();
-          return {
-            name: marketName,
-            openPana,
-            openSingle: jodi[0] || "?",
-            closeSingle: jodi[1] || "?",
-            closePana,
-            full_result: `${openPana}-${jodi}-${closePana}`
-          };
-        } else if (parts.length === 2) {
-          const openPana = parts[0].trim();
-          const jodi = parts[1].trim();
-          return {
-            name: marketName,
-            openPana,
-            openSingle: jodi[0] || "?",
-            closeSingle: jodi[1] || "?",
-            closePana: "***",
-            full_result: `${openPana}-${jodi}-***`
-          };
-        }
-      }
-
-      // Try matching with h4 attributes e.g., <h4 class="...">MARKET</h4>
-      const regexAttr = new RegExp(`<h4[^>]*>\\s*${escapedName}\\s*</h4>\\s*<span[^>]*>\\s*([^<\\n\\r]+)\\s*</span>`, 'i');
-      const matchAttr = html.match(regexAttr);
-      if (matchAttr) {
-        const fullResultStr = matchAttr[1].trim();
-        const parts = fullResultStr.split('-');
-        if (parts.length === 3) {
-          const openPana = parts[0].trim();
-          const jodi = parts[1].trim();
-          const closePana = parts[2].trim();
-          return {
-            name: marketName,
-            openPana,
-            openSingle: jodi[0] || "?",
-            closeSingle: jodi[1] || "?",
-            closePana,
-            full_result: `${openPana}-${jodi}-${closePana}`
-          };
-        } else if (parts.length === 2) {
-          const openPana = parts[0].trim();
-          const jodi = parts[1].trim();
-          return {
-            name: marketName,
-            openPana,
-            openSingle: jodi[0] || "?",
-            closeSingle: jodi[1] || "?",
-            closePana: "***",
-            full_result: `${openPana}-${jodi}-***`
-          };
-        }
-      }
-
-      // Secondary context-based fallback
-      const idx = html.toUpperCase().indexOf(marketName.toUpperCase());
-      if (idx !== -1) {
-        const context = html.slice(Math.max(0, idx - 100), Math.min(html.length, idx + 600));
-        const matchSpan = context.match(/<span[^>]*>\s*([^<\n\r]+)\s*<\/span>/i);
-        if (matchSpan) {
-          const fullResultStr = matchSpan[1].trim();
-          if (fullResultStr.includes('-') || /^\d+$/.test(fullResultStr)) {
-            const parts = fullResultStr.split('-');
-            if (parts.length === 3) {
-              const openPana = parts[0].trim();
-              const jodi = parts[1].trim();
-              const closePana = parts[2].trim();
-              return {
-                name: marketName,
-                openPana,
-                openSingle: jodi[0] || "?",
-                closeSingle: jodi[1] || "?",
-                closePana,
-                full_result: `${openPana}-${jodi}-${closePana}`
-              };
-            } else if (parts.length === 2) {
-              const openPana = parts[0].trim();
-              const jodi = parts[1].trim();
-              return {
-                name: marketName,
-                openPana,
-                openSingle: jodi[0] || "?",
-                closeSingle: jodi[1] || "?",
-                closePana: "***",
-                full_result: `${openPana}-${jodi}-***`
-              };
-            }
-          }
-        }
-      }
-
-      return null;
-    };
-
-    for (const [key, name] of Object.entries(TARGET_MARKETS)) {
-      const res = findResultNear(name);
-      if (res) {
-        results[key] = res;
-        parsedAny = true;
-      }
-    }
-
-    // Temporary force override for connection test as requested
-    results["KALYAN"] = {
-      name: "KALYAN",
-      openPana: "140",
-      openSingle: "5",
-      closeSingle: "9",
-      closePana: "3",
-      full_result: "140-59-3"
-    };
-    results["NEW GOLDEN SAGAR"] = {
-      name: "NEW GOLDEN SAGAR",
-      openPana: "140",
-      openSingle: "5",
-      closeSingle: "9",
-      closePana: "3",
-      full_result: "140-59-3"
-    };
-    parsedAny = true;
-
-    if (parsedAny) {
-      return { data: results, status: "success", source: "DPBoss Live Scraper" };
-    } else {
-      return { data: results, status: "fallback", source: "DPBoss (Protected/Simulated)" };
-    }
-
-  } catch (error) {
-    console.error("Scraping error:", error);
-    return { data: results, status: "fallback", source: "DPBoss (Protected/Simulated)" };
-  }
-}
-
-// In-memory cache for live results initialized dynamically empty (Awaited)
-let cachedResults: any = {
-  data: {},
-  status: "success",
-  source: "DPBoss (Initializing)"
-};
-for (const key of Object.keys(TARGET_MARKETS)) {
-  cachedResults.data[key] = {
-    name: key,
-    openPana: "???",
-    openSingle: "?",
-    closeSingle: "?",
-    closePana: "???",
-    full_result: "???-??-???"
-  };
-}
-
-// Background worker to scrape DPBoss periodically
-async function runBackgroundScraper() {
-  try {
-    const scraped = await scrapeDPBoss();
-    cachedResults = scraped;
-    console.log(`[Background Scraper] Cache updated. Status: ${scraped.status}, Source: ${scraped.source}`);
-  } catch (error) {
-    console.error("[Background Scraper] Error updating cache:", error);
-  }
-}
-
-// Start periodic scraping every 1 minute
-setInterval(runBackgroundScraper, 60000);
-
-// Run immediately on start (non-blocking)
-runBackgroundScraper();
-
-app.get("/api/results", (req, res) => {
-  res.json(cachedResults);
-});
-
-async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
-
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
-}
-
-startServer();
-// Existing router for API merge
-app.get("/api/live-results", async (req, res) => {
-  try {
-    // 1. Pehle bahar ka automated data fetch karo
-    const scrapedData = await scrapeDPBoss();
-    
-    // 2. Ab check karo ki Admin Panel se koi manual data aaya hai kya
+    // Merge Admin entries over Scraper data
     for (const key of Object.keys(TARGET_MARKETS)) {
       if (liveResults[key]) {
-        // Agar admin ne number dala hai, toh scraper wale data ko hatakar admin ka data set karo
-        if (!scrapedData.results[key]) scrapedData.results[key] = { name: key };
+        if (!scrapedData.results[key]) {
+          scrapedData.results[key] = { name: key };
+        }
         scrapedData.results[key].full_result = liveResults[key];
         
-        // Split strings if format is 140-59-3
         const parts = liveResults[key].split('-');
         if (parts.length === 3) {
           scrapedData.results[key].openPana = parts[0];
-scrapedData.results[key].jodi = parts[1];
-scrapedData.results[key].closePana = parts[2];
-          
+          scrapedData.results[key].jodi = parts[1];
+          scrapedData.results[key].closePana = parts[2];
+        } else {
+          scrapedData.results[key].full_result = liveResults[key];
         }
       }
     }
@@ -354,4 +123,9 @@ scrapedData.results[key].closePana = parts[2];
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
+});
+
+// Start Server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
