@@ -9,47 +9,20 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Target Markets to Track
+// Redis API Credentials from Vercel Environment Variables
+const REDIS_URL = process.env.STORAGE_REST_API_URL || process.env.KV_REST_API_URL;
+const REDIS_TOKEN = process.env.STORAGE_REST_API_TOKEN || process.env.KV_REST_API_TOKEN;
+
 const TARGET_MARKETS = {
-  "MILAN MORNING": true,
-  "SRIDEVI": true,
-  "KALYAN MORNING": true,
-  "PADMAVATI": true,
-  "MADHUR MORNING": true,
-  "TIME BAZAR": true,
-  "TARA MUMBAI DAY": true,
-  "MILAN DAY": true,
-  "MAIN BAZAR CLASSIC": true,
-  "RAJDHANI DAY": true,
-  "SUPREME DAY": true,
-  "KALYAN": true,
-  "SRIDEVI NIGHT": true,
-  "MADHUR NIGHT": true,
-  "MINAKSHI NIGHT": true,
-  "MILAN NIGHT": true,
-  "RAJDHANI NIGHT": true,
-  "MAIN BAZAR": true,
-  "KALYAN NIGHT": true,
-  "SREEDEVI DAY": true,
-  "SUPREME NIGHT": true,
-  "KUBER DAY": true,
-  "KUBER NIGHT": true,
-  "KALYAN MARKET NIGHT": true,
-  "MAIN MARKET NIGHT": true,
-  "TIME BAZAR NIGHT": true,
-  "MORNING SYNDICATE": true,
-  "TSUNAMI DAY": true
+  "MILAN MORNING": true, "SRIDEVI": true, "KALYAN MORNING": true, "PADMAVATI": true,
+  "MADHUR MORNING": true, "TIME BAZAR": true, "TARA MUMBAI DAY": true, "MILAN DAY": true,
+  "MAIN BAZAR CLASSIC": true, "RAJDHANI DAY": true, "SUPREME DAY": true, "KALYAN": true,
+  "SRIDEVI NIGHT": true, "MADHUR NIGHT": true, "MINAKSHI NIGHT": true, "MILAN NIGHT": true,
+  "RAJDHANI NIGHT": true, "MAIN BAZAR": true, "KALYAN NIGHT": true, "SREEDEVI DAY": true,
+  "SUPREME NIGHT": true, "KUBER DAY": true, "KUBER NIGHT": true, "KALYAN MARKET NIGHT": true,
+  "MAIN MARKET NIGHT": true, "TIME BAZAR NIGHT": true, "MORNING SYNDICATE": true, "TSUNAMI DAY": true
 };
 
-// Global memory to store live results from Admin Panel
-let liveResults: Record<string, string> = {};
-
-// Helper to clean scraped text
-function cleanText(text: string): string {
-  return text ? text.replace(/\s+/g, ' ').trim() : '';
-}
-
-// Function to Scrape External Data (Automatic Scraper)
 async function scrapeDPBoss() {
   try {
     const response = await fetch('https://dpbossx.net', {
@@ -63,7 +36,6 @@ async function scrapeDPBoss() {
       const text = $(element).text().toUpperCase();
       for (const market of Object.keys(TARGET_MARKETS)) {
         if (text.includes(market)) {
-          // Extracts default pattern 123-45-678 if present
           const match = text.match(/(\d{3})\s*-\s*(\d{2})\s*-\s*(\d{3})/);
           if (match) {
             results[market] = {
@@ -83,17 +55,25 @@ async function scrapeDPBoss() {
   }
 }
 
-// 1. ROUTE: Admin Panel updates results here
-app.post("/api/update-result", (req, res) => {
+// 1. ROUTE: Admin Panel saves data directly into Upstash DB via native HTTP fetch
+app.post("/api/update-result", async (req, res) => {
   const { market, result } = req.body;
   if (!market || !result) {
     return res.status(400).json({ success: false, message: "Market and result required" });
   }
-  liveResults[market.toUpperCase()] = result;
-  return res.json({ success: true, data: liveResults });
+  try {
+    if (REDIS_URL && REDIS_TOKEN) {
+      await fetch(`${REDIS_URL}/hset/liveResults/${market.toUpperCase()}/${encodeURIComponent(result)}`, {
+        headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
+      });
+    }
+    return res.json({ success: true, message: "Result saved permanently across all mobiles!" });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
 });
 
-// 2. ROUTE: Unified endpoint for Frontend to fetch both Scraper & Admin Data
+// 2. ROUTE: Unified Frontend Endpoint fetching shared stable DB values
 app.get("/api/get-results", async (req, res) => {
   try {
     let scrapedData = await scrapeDPBoss();
@@ -101,7 +81,19 @@ app.get("/api/get-results", async (req, res) => {
       scrapedData = { results: {} };
     }
 
-    // Merge Admin entries over Scraper data
+    let liveResults: Record<string, string> = {};
+    if (REDIS_URL && REDIS_TOKEN) {
+      const redisRes = await fetch(`${REDIS_URL}/hgetall/liveResults`, {
+        headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
+      });
+      const data = await redisRes.json() as { result?: string[] };
+      if (data && data.result) {
+        for (let i = 0; i < data.result.length; i += 2) {
+          liveResults[data.result[i]] = data.result[i + 1];
+        }
+      }
+    }
+
     for (const key of Object.keys(TARGET_MARKETS)) {
       if (liveResults[key]) {
         if (!scrapedData.results[key]) {
@@ -114,8 +106,6 @@ app.get("/api/get-results", async (req, res) => {
           scrapedData.results[key].openPana = parts[0];
           scrapedData.results[key].jodi = parts[1];
           scrapedData.results[key].closePana = parts[2];
-        } else {
-          scrapedData.results[key].full_result = liveResults[key];
         }
       }
     }
@@ -125,7 +115,6 @@ app.get("/api/get-results", async (req, res) => {
   }
 });
 
-// Start Server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
