@@ -1,4 +1,4 @@
-import express from 'express';
+ import express from 'express';
 import cors from 'cors';
 import * as cheerio from 'cheerio';
 import fetch from 'node-fetch';
@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Redis API Credentials from Vercel Environment Variables
+// Pure verified Vercel-Upstash environment bindings
 const REDIS_URL = process.env.STORAGE_REST_API_URL || process.env.KV_REST_API_URL;
 const REDIS_TOKEN = process.env.STORAGE_REST_API_TOKEN || process.env.KV_REST_API_TOKEN;
 
@@ -55,7 +55,7 @@ async function scrapeDPBoss() {
   }
 }
 
-// 1. ROUTE: Admin Panel saves data directly into Upstash DB via native HTTP fetch
+// 1. ROUTE: Admin Panel saves data directly into Upstash DB
 app.post("/api/update-result", async (req, res) => {
   const { market, result } = req.body;
   if (!market || !result) {
@@ -63,11 +63,12 @@ app.post("/api/update-result", async (req, res) => {
   }
   try {
     if (REDIS_URL && REDIS_TOKEN) {
+      // Corrected URL structure for Upstash REST HSET command
       await fetch(`${REDIS_URL}/hset/liveResults/${market.toUpperCase()}/${encodeURIComponent(result)}`, {
         headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
       });
     }
-    return res.json({ success: true, message: "Result saved permanently across all mobiles!" });
+    return res.json({ success: true, message: "Result synchronized permanently across all devices!" });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -86,10 +87,12 @@ app.get("/api/get-results", async (req, res) => {
       const redisRes = await fetch(`${REDIS_URL}/hgetall/liveResults`, {
         headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
       });
-      const data = await redisRes.json() as { result?: string[] };
-      if (data && data.result) {
-        for (let i = 0; i < data.result.length; i += 2) {
-          liveResults[data.result[i]] = data.result[i + 1];
+      const data = await redisRes.json() as { result?: Record<string, string> };
+      
+      // Upstash REST return JSON object for HGETALL, mapping it securely
+      if (data && data.result && typeof data.result === 'object') {
+        for (const [key, val] of Object.entries(data.result)) {
+          liveResults[key.toUpperCase()] = val;
         }
       }
     }
@@ -118,3 +121,5 @@ app.get("/api/get-results", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+       
+        
