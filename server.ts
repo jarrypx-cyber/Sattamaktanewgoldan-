@@ -9,11 +9,10 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Upstash DB Credentials from Vercel
+// Upstash Database Configuration from Vercel Environment Variables
 const REDIS_URL = process.env.STORAGE_REST_API_URL || process.env.KV_REST_API_URL;
 const REDIS_TOKEN = process.env.STORAGE_REST_API_TOKEN || process.env.KV_REST_API_TOKEN;
 
-// All Major Live Markets to Track automatically
 const TARGET_MARKETS = {
   "MILAN MORNING": true, "SRIDEVI": true, "KALYAN MORNING": true, "PADMAVATI": true,
   "MADHUR MORNING": true, "TIME BAZAR": true, "TARA MUMBAI DAY": true, "MILAN DAY": true,
@@ -24,7 +23,7 @@ const TARGET_MARKETS = {
   "MAIN MARKET NIGHT": true, "TIME BAZAR NIGHT": true, "MORNING SYNDICATE": true, "TSUNAMI DAY": true
 };
 
-// Automatic Core Live Scraper Engine
+// Error-free Stable Scraper Engine
 async function fetchGlobalLiveResults() {
   try {
     const response = await fetch('https://dpboss.net', {
@@ -40,7 +39,7 @@ async function fetchGlobalLiveResults() {
       for (const market of Object.keys(TARGET_MARKETS)) {
         if (text.includes(market)) {
           const match = text.match(/(\d{3})\s*-\s*(\d{2})\s*-\s*(\d{3})/) || text.match(/(\d{3})\s*-\s*(\d{2})/);
-          if (match) {
+          if (match && match[0]) {
             const rawResult = match[0].replace(/\s+/g, '');
             const parts = rawResult.split('-');
             results[market] = {
@@ -60,7 +59,7 @@ async function fetchGlobalLiveResults() {
   }
 }
 
-// 1. ROUTE: Admin Manual Overwrite
+// 1. ROUTE: Admin Panel Update Route
 app.post("/api/update-result", async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   const { market, result } = req.body;
@@ -79,7 +78,7 @@ app.post("/api/update-result", async (req, res) => {
   }
 });
 
-// 2. ROUTE: Unified Frontend Endpoint fetching shared stable DB values with strict cache control
+// 2. ROUTE: Frontend Unified Fetch Synchronization Engine
 app.get("/api/get-results", async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
@@ -124,5 +123,5 @@ app.get("/api/get-results", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Live sync matrix active on port ${PORT}`);
+  console.log(`Live sync matrix operational on port ${PORT}`);
 });
