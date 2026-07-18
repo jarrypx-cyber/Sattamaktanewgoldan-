@@ -1,94 +1,57 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Header from './components/Header';
 import JodiChart from './components/JodiChart';
 import AdminPanel from './components/AdminPanel';
-import { defaultMarkets, generateSeedJodiChart, getCurrentIST, getISTDateString, getLiveMarketResult, parseTimeToMinutes } from './data';
-import { Market, JodiRecord } from './types';
-import { Crown, Flame, Star, Trophy, MessageSquare, Zap, ShieldCheck, RefreshCw, ChevronRight, Wifi, Terminal, Cpu, Database, Radio } from 'lucide-react';
-const fetchLiveResults = () => {
-  fetch('https://' + 'matka-backend-duqq' + '.onrender.com' + '/api/results')
-    .then(res => res.json())
-    .then(json => {
-      console.log("Live Results Connected:", json);
-      if (json && json.data) {
-        setLiveResults(json.data);
-      }
-    })
-    .catch(err => console.error(err));
-};
+import { defaultMarkets, getCurrentIST } from './data';
+import { Market } from './types';
+import { Flame, Terminal, Database, Radio } from 'lucide-react';
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState('live');
-  const [selectedChartMarketId, setSelectedChartMarketId] = useState('');
-  const [liveResults, setLiveResults] = useState<any>(null);
-  
-  const [currentISTTime, setCurrentISTTime] = useState(getCurrentIST());
-  const [syncCountdown, setSyncCountdown] = useState(5);
-  const [lastSyncTime, setLastSyncTime] = useState('Just now');
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('live');
+  const [selectedChartMarketId, setSelectedChartMarketId] = useState<string>('kalyan');
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => localStorage.getItem('satta_admin_logged_in') === 'true');
 
-    
+  const [currentISTTime, setCurrentISTTime] = useState<Date>(getCurrentIST());
+  const [syncCountdown, setSyncCountdown] = useState<number>(5);
+  const [lastSyncTime, setLastSyncTime] = useState<string>('Just now');
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  const todayStr = getISTDateString(currentISTTime);
-  const currentMinutes = currentISTTime.getHours() * 60 + currentISTTime.getMinutes();
-
-  // Google Site Verification State
-  const [googleVerification, setGoogleVerification] = useState<string>(
-    () => localStorage.getItem('satta_google_verification') || ''
-  );
-
-  // Dynamic Google Site Verification injector
   useEffect(() => {
-    let meta = document.querySelector('meta[name="google-site-verification"]');
-    if (googleVerification) {
-      if (!meta) {
-        meta = document.createElement('meta');
-        meta.setAttribute('name', 'google-site-verification');
-        document.head.appendChild(meta);
-      }
-      meta.setAttribute('content', googleVerification);
-    } else if (meta) {
-      meta.remove();
-    }
-  }, [googleVerification]);
+    const timer = setInterval(() => {
+      setSyncCountdown((prev) => {
+        if (prev <= 1) {
+          setIsSyncing(true);
+          const nowIST = getCurrentIST();
+          setCurrentISTTime(nowIST);
+          setTimeout(() => {
+            setIsSyncing(false);
+            setLastSyncTime(nowIST.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }));
+          }, 800);
+          return 5;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-  // App-level Toast and modal states for alerts replacement
+  const [googleVerification] = useState<string>(() => localStorage.getItem('satta_google_verification') || '');
   const [appToast, setAppToast] = useState<{ text: string; icon: string } | null>(null);
-  const [selectedAd, setSelectedAd] = useState<{ label: string; desc: string } | null>(null);
 
   useEffect(() => {
     if (!appToast) return;
     const timer = setTimeout(() => setAppToast(null), 3000);
-    return () => clearTimeout(timer);
+    return () => clearInterval(timer);
   }, [appToast]);
 
-  // Initialize Markets State
   const [markets, setMarkets] = useState<Market[]>(() => {
     const saved = localStorage.getItem('satta_markets');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved) as Market[];
-        // Filter out any markets that aren't part of defaultMarkets
-        const filtered = parsed.filter((pm) => defaultMarkets.some((dm) => dm.id === pm.id));
-        const missing = defaultMarkets.filter((dm) => !filtered.some((pm) => pm.id === dm.id));
-        if (missing.length > 0 || filtered.length !== defaultMarkets.length) {
-          localStorage.setItem('satta_markets', JSON.stringify(defaultMarkets));
-          return defaultMarkets;
-        }
-        return filtered;
-      } catch (e) {
-        return defaultMarkets;
-      }
-    }
-    return defaultMarkets;
+    return saved ? JSON.parse(saved) : defaultMarkets;
   });
 
-  // Dynamically computed live market results (combining auto-update values + overrides)
-  const resolvedMarkets = markets.map((m) => getLiveMarketResult(m, todayStr, currentMinutes));
-
-  // Time formatters for automatic scraping & upload logs
   const getCurrentTimeFormatted = () => {
-    const d = getCurrentIST();
+    const d = new Date();
     let hours = d.getHours();
     const minutes = String(d.getMinutes()).padStart(2, '0');
     const seconds = String(d.getSeconds()).padStart(2, '0');
@@ -98,352 +61,149 @@ export default function App() {
     return `${String(hours).padStart(2, '0')}:${minutes}:${seconds} ${ampm}`;
   };
 
-  const getISTTimeStr = (offsetMinutesAgo: number) => {
-    const d = getCurrentIST();
-    d.setMinutes(d.getMinutes() - offsetMinutesAgo);
-    let hours = d.getHours();
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12;
-    return `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
-  };
-
-  // Live Automatic Scraper & Uploader States
-  const [isScanning, setIsScanning] = useState<boolean>(false);
-  const [scraperLogs, setScraperLogs] = useState<string[]>([]);
-
-  // Dynamic live-fetching from DPBoss Scraper API every 10 seconds
   useEffect(() => {
     const fetchLiveResults = async () => {
-      try {
-        const response = await fetch("/api/results");
-        const result = await response.json();
-        if (result.status === "success" || result.status === "fallback") {
-          const apiData = result.data;
-          setMarkets((prevMarkets) => {
-            const updated = prevMarkets.map((m) => {
-              let apiMarket = null;
-              if (m.id === 'kalyan' && apiData.KALYAN) {
-                apiMarket = apiData.KALYAN;
-              } else if (m.id === 'time-bazar' && apiData['TIME BAZAR']) {
-                apiMarket = apiData['TIME BAZAR'];
-              } else if (m.id === 'milan-day' && apiData['MILAN DAY']) {
-                apiMarket = apiData['MILAN DAY'];
-              } else {
-                const upperName = m.name.toUpperCase();
-                if (apiData[upperName]) {
-                  apiMarket = apiData[upperName];
-                }
-              }
+      const potentialEndpoints = [
+        "https://matka-backend-duqq.onrender.com",
+        "https://matka-backend-duqq.onrender.com/api/results"
+      ];
 
-              if (apiMarket) {
-                return {
-                  ...m,
-                  openPana: apiMarket.openPana,
-                  openSingle: apiMarket.openSingle,
-                  closeSingle: apiMarket.closeSingle,
-                  closePana: apiMarket.closePana,
-                  status: 'CLOSED',
-                  lastUpdated: `Live DPBoss Sync at ${getCurrentTimeFormatted()}`
-                };
-              }
-              return m;
-            });
-            localStorage.setItem('satta_markets', JSON.stringify(updated));
-            return updated;
-          });
+      let responseData = null;
+
+      for (const url of potentialEndpoints) {
+        try {
+          const response = await fetch(url);
+          if (response.ok) {
+            const result = await response.json();
+            if (result && (result.data || result.KALYAN || result.status === "success")) {
+              responseData = result.data || result;
+              break;
+            }
+          }
+        } catch (e) {
+          console.log(`Failed fetching from ${url}`);
         }
-      } catch (error) {
-        console.warn("Failed to fetch live results from DPBoss API:", error);
+      }
+
+      if (responseData) {
+        setMarkets((prevMarkets) => {
+          const updated = prevMarkets.map((m) => {
+            let apiMarket = null;
+            const upperName = m.name.toUpperCase();
+            
+            if (m.id === 'kalyan' && responseData.KALYAN) {
+              apiMarket = responseData.KALYAN;
+            } else if (m.id === 'time-bazar' && responseData['TIME BAZAR']) {
+              apiMarket = responseData['TIME BAZAR'];
+            } else if (m.id === 'milan-day' && responseData['MILAN DAY']) {
+              apiMarket = responseData['MILAN DAY'];
+            } else if (responseData[upperName]) {
+              apiMarket = responseData[upperName];
+            }
+
+            if (apiMarket && apiMarket.openSingle && !String(apiMarket.openSingle).toLowerCase().includes('await')) {
+              return {
+                ...m,
+                openPana: apiMarket.openPana || m.openPana,
+                openSingle: apiMarket.openSingle,
+                closeSingle: apiMarket.closeSingle,
+                closePana: apiMarket.closePana || m.closePana,
+                status: 'CLOSED',
+                lastUpdated: `Live DPBoss Sync at ${getCurrentTimeFormatted()}`
+              };
+            }
+            return m;
+          });
+          localStorage.setItem('satta_markets', JSON.stringify(updated));
+          return updated;
+        });
       }
     };
 
-    // Initial fetch on mount
     fetchLiveResults();
-
-    // Set up 10-second polling interval
     const interval = setInterval(fetchLiveResults, 10000);
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const lines = [
-      `[${getISTTimeStr(12)}] 📡 Starting automatic matka result scraper daemon...`,
-      `[${getISTTimeStr(10)}] 🚀 Connected to Central Satta Matka Data Highway.`,
-      `[${getISTTimeStr(8)}] 🌐 Live Web-Scraping Active on 14 official Matka & Golden servers...`,
-      `[${getISTTimeStr(7)}] 📥 [ARCHIVE] Fetching 1 SAAL (365 days / 53 Weeks) historical chart archives for all markets...`,
-      `[${getISTTimeStr(6)}] ✅ Successfully synced 53 weeks of historical records from dpboss.net & goldenmatka.in.`,
-    ];
-    
-    // Add records that are already declared today
-    let matchedCount = 0;
-    resolvedMarkets.forEach((m) => {
-      if (m.openPana !== '???') {
-        lines.push(`[${m.openTime}] 📥 [SCRAPED] Scraped Live Open Result for ${m.name} -> ${m.openPana}-${m.openSingle}`);
-        lines.push(`[${m.openTime}] 🟢 [AUTO-UPLOAD] Instantly uploaded and published on our site.`);
-        matchedCount++;
-      }
-      if (m.closePana !== '???') {
-        lines.push(`[${m.closeTime}] 📥 [SCRAPED] Scraped Live Close Result for ${m.name} -> ${m.closePana}-${m.closeSingle}`);
-        lines.push(`[${m.closeTime}] 🟢 [AUTO-UPLOAD] Instantly uploaded and published on our site.`);
-        matchedCount++;
-      }
-    });
-
-    lines.push(`[${getCurrentTimeFormatted()}] 📡 [STATUS] Scanner listening in real-time. ${matchedCount} results auto-uploaded today.`);
-    setScraperLogs(lines.slice(-10)); // Keep last 10 lines
-  }, [currentMinutes, markets]);
-
-  const handleManualScrapeScan = () => {
-    if (isScanning) return;
-    setIsScanning(true);
-    
-    const newLogs = [
-      ...scraperLogs,
-      `[${getCurrentTimeFormatted()}] 📡 [FORCE-SCAN] Initiated immediate scan on all 14 official partner sites...`,
-    ];
-    setScraperLogs(newLogs.slice(-10));
-
-    setTimeout(() => {
-      const finalTime = getCurrentTimeFormatted();
-      setScraperLogs(prev => [
-        ...prev,
-        `[${finalTime}] 🟢 [SYNC COMPLETE] Checked dpboss.net, kalyan.in & goldenmatka.in.`,
-        `[${finalTime}] 🟢 [DATABASE] All live open/close results are perfectly synchronized!`,
-      ].slice(-10));
-      setIsScanning(false);
-      setAppToast({ text: "Swayam-Chalit Live results fully verified & matched with Golden Satta servers!", icon: "📡" });
-    }, 1500);
-  };
-
-  // Initialize Jodi Records State
-  const [jodiRecords, setJodiRecords] = useState<JodiRecord[]>(() => {
-    const saved = localStorage.getItem('satta_jodi_records');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved) as JodiRecord[];
-        // Filter out any records that belong to removed markets
-        const filtered = parsed.filter((r) => defaultMarkets.some((dm) => dm.id === r.marketId));
-        if (filtered.length < 200) {
-          const fresh = generateSeedJodiChart();
-          localStorage.setItem('satta_jodi_records', JSON.stringify(fresh));
-          return fresh;
-        }
-        const uniqueMarketIdsInRecords = new Set(filtered.map((r) => r.marketId));
-        const missingMarketSeeds = generateSeedJodiChart().filter(
-          (seed) => !uniqueMarketIdsInRecords.has(seed.marketId)
-        );
-        if (missingMarketSeeds.length > 0 || filtered.length !== parsed.length) {
-          const merged = [...filtered, ...missingMarketSeeds];
-          localStorage.setItem('satta_jodi_records', JSON.stringify(merged));
-          return merged;
-        }
-        return filtered;
-      } catch (e) {
-        return generateSeedJodiChart();
-      }
-    }
-    return generateSeedJodiChart();
-  });
-
-  // Persist Markets and save explicit overrides for today's date
-  const handleUpdateMarkets = (updated: Market[]) => {
-    setMarkets(updated);
-    localStorage.setItem('satta_markets', JSON.stringify(updated));
-
-    // Also persist explicit manual override for today
-    const currentTodayStr = getISTDateString(getCurrentIST());
-    updated.forEach((m) => {
-      const original = markets.find((o) => o.id === m.id);
-      if (original && (
-        original.openPana !== m.openPana ||
-        original.closePana !== m.closePana ||
-        original.status !== m.status
-      )) {
-        // Market was manually edited
-        const override = {
-          status: m.status,
-          openPana: m.openPana,
-          openSingle: m.openSingle,
-          closeSingle: m.closeSingle,
-          closePana: m.closePana,
-        };
-        localStorage.setItem(`satta_override_${m.id}_${currentTodayStr}`, JSON.stringify(override));
-      }
-    });
-  };
-
-  // Persist new historical record
-  const handleAddJodiRecord = (record: JodiRecord) => {
-    const updated = [record, ...jodiRecords];
-    setJodiRecords(updated);
-    localStorage.setItem('satta_jodi_records', JSON.stringify(updated));
-  };
-
-  // Reset to default preseeded values and clear overrides
-  const handleResetData = () => {
-    // Clear all localStorage override keys
-    Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith('satta_override_')) {
-        localStorage.removeItem(key);
-      }
-    });
-    localStorage.removeItem('satta_markets');
-    localStorage.removeItem('satta_jodi_records');
-    setMarkets(defaultMarkets);
-    setJodiRecords(generateSeedJodiChart());
-    setIsAdmin(false);
-    setActiveTab('live');
-  };
-
-  // Get active markets for dropdown lists
-  const marketList = markets.map((m) => ({ id: m.id, name: m.name }));
-
-  // Dynamically merge live auto-updates/scraped values of today with historical dataset
-  const mergedJodiRecords = useMemo(() => {
-    const todayIST = getCurrentIST();
-    const todayStr = getISTDateString(todayIST);
-    const todayDayName = todayIST.toLocaleDateString('en-US', { weekday: 'long' });
-
-    // Create virtual today records from resolvedMarkets that have results declared today
-    const todayVirtualRecords = resolvedMarkets
-      .filter((m) => m.openSingle !== '?') // must have at least open single declared today
-      .map((m) => {
-        const jodi = `${m.openSingle}${m.closeSingle === '?' ? '*' : m.closeSingle}`;
-        return {
-          id: `${m.id}-${todayStr}`,
-          date: todayStr,
-          day: todayDayName,
-          marketId: m.id,
-          marketName: m.name,
-          openPana: m.openPana,
-          jodi: jodi,
-          closePana: m.closePana,
-        } as JodiRecord;
-      });
-
-    // Merge virtual records with existing records ensuring uniqueness by id
-    const existingIds = new Set(jodiRecords.map((r) => r.id));
-    const uniqueVirtuals = todayVirtualRecords.filter((r) => !existingIds.has(r.id));
-
-    return [...uniqueVirtuals, ...jodiRecords];
-  }, [jodiRecords, resolvedMarkets]);
-
-  // Dynamically format a result for featured markets without ever showing "Loading.."
-  const getDisplayResultForFeatured = (marketId: string): string => {
-    const m = resolvedMarkets.find((x) => x.id === marketId);
-    if (!m) return 'Awaited';
-
-    // If today's result hasn't been declared yet
-    if (m.openPana === '???' || m.openPana === 'Awaited' || !m.openPana) {
-      return 'Awaited';
-    }
-
-    // If open declared but close is pending
-    if (m.closePana === '???' || m.closePana === 'Awaited' || !m.closePana) {
-      return `${m.openPana}-${m.openSingle}?-???`;
-    }
-
-    // Fully declared
-    return `${m.openPana}-${m.openSingle}${m.closeSingle}-${m.closePana}`;
-  };
-
   return (
-    <div className="min-h-screen w-full bg-[#030919] font-sans text-white antialiased selection:bg-yellow-400 selection:text-slate-950 pb-10">
-      
-      {/* Main Header Component */}
-      <Header
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        isAdmin={isAdmin}
-        setIsAdmin={setIsAdmin}
-      />
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 font-sans antialiased">
+      <AnimatePresence>
+        {appToast && (
+          <motion.div initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 16 }} exit={{ opacity: 0 }} className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-neutral-900 border border-amber-500/30 text-amber-400 px-5 py-3 rounded-xl shadow-2xl">
+            <span className="font-semibold text-sm">{appToast.text}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <main className="mx-auto max-w-7xl px-4 py-6 md:px-8">
-        
-        {/* TAB RENDERER */}
-        <div className="transition-all duration-300">
-          
-          {/* TAB 1: LIVE RESULTS DASHBOARD */}
+      <Header isAdmin={isAdmin} setIsAdmin={setIsAdmin} />
+
+      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <div className="flex bg-neutral-900/60 p-1 rounded-xl border border-neutral-800">
+          <button onClick={() => setActiveTab('live')} className={`flex-1 py-3 rounded-lg font-bold text-sm ${activeTab === 'live' ? 'bg-amber-500 text-black' : 'text-neutral-400'}`}><Flame className="inline w-4 h-4 mr-2"/>LIVE RESULTS</button>
+          <button onClick={() => setActiveTab('charts')} className={`flex-1 py-3 rounded-lg font-bold text-sm ${activeTab === 'charts' ? 'bg-amber-500 text-black' : 'text-neutral-400'}`}><Database className="inline w-4 h-4 mr-2"/>JODI CHARTS</button>
+          <button onClick={() => setActiveTab('admin')} className={`flex-1 py-3 rounded-lg font-bold text-sm ${activeTab === 'admin' ? 'bg-amber-500 text-black' : 'text-neutral-400'}`}><Terminal className="inline w-4 h-4 mr-2"/>PANEL CONTROL</button>
+        </div>
+
+        <AnimatePresence mode="wait">
           {activeTab === 'live' && (
-            <div className="space-y-6">
-              
-              {/* 🟢 Live Result Top Strip (Blinking & Featured) */}
-              <div className="rounded-xl border-4 border-red-600 bg-[#070e1e] shadow-2xl overflow-hidden max-w-4xl mx-auto">
-                <div className="bg-red-600 text-yellow-300 py-3 px-4 text-center font-black text-xl uppercase tracking-widest border-b-4 border-yellow-500 animate-pulse flex items-center justify-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-yellow-300 animate-ping"></span>
-                  ⚡ SUPER FAST LIVE RESULTS ⚡
-                </div>
-                <div className="bg-[#0b142c] p-4 divide-y divide-slate-800">
-                  {/* Featured Market 1: New Golden Sagar */}
-                  <div className="py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
-                    <div className="flex items-center gap-2">
-                      <span className="relative flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
-                      </span>
-                      <span className="text-xs bg-red-600 text-white font-black px-2 py-0.5 rounded uppercase tracking-wider">LIVE</span>
-                      <strong className="text-yellow-400 text-lg font-black tracking-wide">NEW GOLDEN SAGAR</strong>
+            <motion.div key="live" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid gap-4 sm:grid-cols-2">
+              {markets.map((market) => (
+                <div key={market.id} className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 relative overflow-hidden group">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="font-extrabold text-lg text-neutral-100">{market.name}</h3>
+                      <p className="text-xs text-neutral-500 mt-1">Open: {market.openTime} | Close: {market.closeTime}</p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono font-black text-2xl text-green-400 tracking-widest bg-slate-950 border-2 border-yellow-500/30 px-4 py-1.5 rounded-lg shadow-inner">
-                        liveResults && liveResults["NEW GOLDEN SAGAR"] ? liveResults["NEW GOLDEN SAGAR"].full_result : "Awaited"
+                    <span className="bg-amber-500/10 text-amber-500 text-[10px] font-black px-2 py-1 rounded border border-amber-500/20">{market.status}</span>
+                  </div>
+
+                  <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-4 text-center my-3">
+                    <div className="flex justify-center items-center gap-3 text-2xl font-black font-mono">
+                      <span className="text-neutral-400">{market.openPana || '---'}</span>
+                      <span className="text-amber-500 text-3xl font-black bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/30">
+                        {market.openSingle ?? '-'}{market.closeSingle ?? '-'}
                       </span>
-                      <button 
-                        onClick={() => {
-                          setCurrentISTTime(getCurrentIST());
-                          setAppToast({ text: "New Golden Sagar Live result synced!", icon: "🔄" });
-                        }}
-                        className="bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition shadow-lg border border-red-500 active:scale-95"
-                      >
-                        REFRESH
-                      </button>
+                      <span className="text-neutral-400">{market.closePana || '---'}</span>
                     </div>
                   </div>
 
-                  {/* Featured Market 2: Kalyan */}
-                  <div className="py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
-                    <div className="flex items-center gap-2">
-                      <span className="relative flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
-                      </span>
-                      <span className="text-xs bg-yellow-500 text-slate-950 font-black px-2 py-0.5 rounded uppercase tracking-wider">LIVE</span>
-                      <strong className="text-yellow-400 text-lg font-black tracking-wide">KALYAN</strong>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono font-black text-2xl text-green-400 tracking-widest bg-slate-950 border-2 border-yellow-500/30 px-4 py-1.5 rounded-lg shadow-inner">
-                        liveResults && liveResults["KALYAN"] ? liveResults["KALYAN"].full_result : "Awaited"
-                      </span>
-                      <button 
-                        onClick={() => {
-                          setCurrentISTTime(getCurrentIST());
-                          setAppToast({ text: "Kalyan Live result synced!", icon: "🔄" });
-                        }}
-                        className="bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition shadow-lg border border-red-500 active:scale-95"
-                      >
-                        REFRESH
-                      </button>
-                    </div>
+                  <div className="flex justify-between items-center text-[11px] text-neutral-500 mt-3 pt-2 border-t border-neutral-800/40">
+                    <span>{market.lastUpdated || 'Waiting for live sync...'}</span>
+                    <button onClick={() => setAppToast({ text: `${market.name} Refreshing...`, icon: "🔄" })} className="text-amber-500 font-bold">REFRESH</button>
                   </div>
                 </div>
+              ))}
+            </motion.div>
+          )}
+
+          {activeTab === 'charts' && (
+            <motion.div key="charts" className="space-y-6">
+              <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
+                <select value={selectedChartMarketId} onChange={(e) => setSelectedChartMarketId(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 text-neutral-100 rounded-xl px-4 py-3 font-bold text-sm">
+                  {markets.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
               </div>
+              <JodiChart marketId={selectedChartMarketId} />
+            </motion.div>
+          )}
 
-              {/* 🟢 Congo Chart Navigation Quick Buttons */}
-              <div className="max-w-4xl mx-auto bg-gradient-to-r from-yellow-500 to-amber-600 border-4 border-[#ffd700] rounded-xl p-3 shadow-xl">
-                <div className="text-center text-xs font-black uppercase text-slate-950 tracking-widest mb-2 flex items-center justify-center gap-1">
-                  👑 WEEKLY / JODI CHARTS QUICK NAVIGATION 👑
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {[
-                    { label: 'KALYAN CHART', id: 'kalyan' },
-                    { label: 'RAJDHANI NIGHT', id: 'rajdhani-night' },
-                    { label: 'NEW GOLDEN DAY', id: 'new-golden-day' },
-                    { label: 'MILAN DAY', id: 'milan-day' },
-                    { label: 'NEW GOLDEN SAGAR', id: 'new-golden-sagar' },
-                  ].map((btn, idx) => (
-                    <button
-                      key={idx}
-                    
-                    
+          {activeTab === 'admin' && (
+            <motion.div key="admin">
+              <AdminPanel markets={markets} setMarkets={setMarkets} googleVerification={googleVerification} setGoogleVerification={() => {}} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+
+      <footer className="border-t border-neutral-900 bg-neutral-950 py-8 text-center space-y-4">
+        <div className="max-w-md mx-auto flex items-center justify-between text-[11px] text-neutral-500 bg-neutral-900 px-4 py-2.5 rounded-xl">
+          <div className="flex items-center gap-2">
+            <Radio className={`w-3.5 h-3.5 text-amber-500 ${isSyncing ? 'animate-ping' : ''}`} />
+            <span>Sync: <b className="text-neutral-400">{syncCountdown}s</b></span>
+          </div>
+          <div>Last Sync: <b className="text-neutral-400">{lastSyncTime}</b></div>
+        </div>
+      </footer>
+    </div>
+  );
+}
