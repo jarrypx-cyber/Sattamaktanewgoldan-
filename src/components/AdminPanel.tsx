@@ -217,17 +217,6 @@ export default function AdminPanel({
 
   return (
     <div className="mx-auto max-w-5xl space-y-8 px-4 md:px-0">
-      
-      {/* Disclaimer and Warning */}
-      <div className="flex items-start gap-3 rounded-xl border-2 border-yellow-500 bg-[#0c142c] p-4 text-white shadow-xl">
-        <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5 text-yellow-400 animate-pulse" />
-        <div>
-          <h3 className="text-sm font-black uppercase tracking-wider text-yellow-400">ADMIN CONTROL CENTER</h3>
-          <p className="mt-1 text-xs text-slate-300 leading-relaxed font-semibold">
-            Yeh simulation aur administration panel hai. Aap jo bhi updates karenge vo direct results panel aur purani jodi chart par live dikhai denge. Sabhi data local storage me save hota hai.
-          </p>
-        </div>
-      </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
 

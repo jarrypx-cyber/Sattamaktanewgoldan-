@@ -1,15 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { Crown, Clock, Calendar, ShieldCheck, Flame, Bell, BellOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import AdminPanel from './AdminPanel';
+import { Market, JodiRecord } from '../types';
 
 interface HeaderProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   isAdmin: boolean;
   setIsAdmin: (isAdmin: boolean) => void;
+  markets: Market[];
+  onUpdateMarkets: (updated: Market[]) => void;
+  onAddJodiRecord: (record: JodiRecord) => void;
+  onResetData: () => void;
+  googleVerification: string;
+  onUpdateGoogleVerification: (val: string) => void;
 }
 
-export default function Header({ activeTab, setActiveTab, isAdmin, setIsAdmin }: HeaderProps) {
+export default function Header({
+  activeTab,
+  setActiveTab,
+  isAdmin,
+  setIsAdmin,
+  markets,
+  onUpdateMarkets,
+  onAddJodiRecord,
+  onResetData,
+  googleVerification,
+  onUpdateGoogleVerification,
+}: HeaderProps) {
   const [time, setTime] = useState<string>('');
   const [date, setDate] = useState<string>('');
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
@@ -25,9 +44,8 @@ export default function Header({ activeTab, setActiveTab, isAdmin, setIsAdmin }:
 
   const handleAdminClick = () => {
     if (isAdmin) {
-      // Log out
-      setIsAdmin(false);
-      localStorage.removeItem('satta_admin_logged_in');
+      // Toggle modal open to view settings
+      setIsPasscodeModalOpen(true);
     } else {
       // Open verification modal
       setPasscodeInput('');
@@ -313,72 +331,119 @@ export default function Header({ activeTab, setActiveTab, isAdmin, setIsAdmin }:
               initial={{ scale: 0.95, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
-              className="relative w-full max-w-md rounded-2xl border-4 border-red-600 bg-white p-6 shadow-2xl"
+              className={`relative w-full rounded-2xl border-4 p-6 shadow-2xl transition-all duration-300 ${
+                isAdmin 
+                  ? 'max-w-4xl max-h-[90vh] overflow-y-auto bg-[#0a142c] border-yellow-500 text-white' 
+                  : 'max-w-md bg-white border-red-600 text-neutral-900'
+              }`}
             >
-              <div className="text-center">
-                <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 mb-3">
-                  <ShieldCheck className="h-6 w-6" />
-                </span>
-                <h3 className="text-xl font-black text-neutral-900 uppercase tracking-tight">
-                  🔑 Owner Admin Verification
-                </h3>
-                <p className="mt-1 text-xs text-neutral-500 font-bold leading-relaxed">
-                  Apna secret passcode daal kar open-close results aur charts ko manage karein.
-                </p>
-              </div>
-
-              <form onSubmit={handleVerifyPasscode} className="mt-6 space-y-4">
-                <div>
-                  <label className="block text-xs font-black text-neutral-700 uppercase mb-1.5">
-                    Enter Secret Passcode:
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPasscode ? "text" : "password"}
-                      required
-                      placeholder="Enter passcode..."
-                      value={passcodeInput}
-                      onChange={(e) => setPasscodeInput(e.target.value)}
-                      className="w-full rounded border-2 border-red-600 bg-yellow-50 px-3 py-2.5 pr-10 text-center font-mono text-base font-bold text-neutral-900 shadow-inner outline-none focus:bg-white focus:border-blue-600"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPasscode(!showPasscode)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 text-xs font-black uppercase"
-                    >
-                      {showPasscode ? "Hide" : "Show"}
-                    </button>
+              {isAdmin ? (
+                <div className="text-left">
+                  <div className="flex items-center justify-between border-b-2 border-slate-800 pb-4 mb-6">
+                    <div className="flex items-center gap-2">
+                      <span className="relative flex h-3.5 w-3.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-green-500"></span>
+                      </span>
+                      <h3 className="text-lg font-black text-yellow-400 uppercase tracking-wider">
+                        👑 OWNER ADMIN PANEL
+                      </h3>
+                    </div>
+                    <div className="flex gap-2.5">
+                      <button
+                        onClick={() => {
+                          setIsAdmin(false);
+                          localStorage.removeItem('satta_admin_logged_in');
+                          setIsPasscodeModalOpen(false);
+                        }}
+                        className="rounded border border-red-500 bg-red-950/40 px-3.5 py-1.5 text-xs font-black uppercase text-red-400 hover:bg-red-900/40 active:scale-95 transition"
+                      >
+                        Log Out
+                      </button>
+                      <button
+                        onClick={() => setIsPasscodeModalOpen(false)}
+                        className="rounded border border-slate-700 bg-slate-800 px-3.5 py-1.5 text-xs font-black uppercase text-slate-300 hover:bg-slate-700 active:scale-95 transition"
+                      >
+                        Close
+                      </button>
+                    </div>
                   </div>
+
+                  <AdminPanel
+                    markets={markets}
+                    onUpdateMarkets={onUpdateMarkets}
+                    onAddJodiRecord={onAddJodiRecord}
+                    onResetData={onResetData}
+                    googleVerification={googleVerification}
+                    onUpdateGoogleVerification={onUpdateGoogleVerification}
+                  />
                 </div>
+              ) : (
+                <>
+                  <div className="text-center">
+                    <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 mb-3">
+                      <ShieldCheck className="h-6 w-6" />
+                    </span>
+                    <h3 className="text-xl font-black text-neutral-900 uppercase tracking-tight">
+                      🔑 Owner Admin Verification
+                    </h3>
+                    <p className="mt-1 text-xs text-neutral-500 font-bold leading-relaxed">
+                      Apna secret passcode daal kar open-close results aur charts ko manage karein.
+                    </p>
+                  </div>
 
-                {passcodeError && (
-                  <p className="text-center text-xs font-black text-red-600 bg-red-50 py-2 px-3 rounded border border-red-200">
-                    ⚠️ {passcodeError}
-                  </p>
-                )}
+                  <form onSubmit={handleVerifyPasscode} className="mt-6 space-y-4">
+                    <div>
+                      <label className="block text-xs font-black text-neutral-700 uppercase mb-1.5">
+                        Enter Secret Passcode:
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPasscode ? "text" : "password"}
+                          required
+                          placeholder="Enter passcode..."
+                          value={passcodeInput}
+                          onChange={(e) => setPasscodeInput(e.target.value)}
+                          className="w-full rounded border-2 border-red-600 bg-yellow-50 px-3 py-2.5 pr-10 text-center font-mono text-base font-bold text-neutral-900 shadow-inner outline-none focus:bg-white focus:border-blue-600"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPasscode(!showPasscode)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 text-xs font-black uppercase"
+                        >
+                          {showPasscode ? "Hide" : "Show"}
+                        </button>
+                      </div>
+                    </div>
 
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsPasscodeModalOpen(false);
-                      setPasscodeInput('');
-                      setPasscodeError('');
-                    }}
-                    className="flex-1 rounded border-2 border-neutral-300 bg-neutral-100 py-2.5 text-xs font-black uppercase text-neutral-700 hover:bg-neutral-200 active:scale-95 transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 rounded border-2 border-white bg-red-600 py-2.5 text-xs font-black uppercase text-white shadow hover:bg-red-700 active:scale-95 transition-all"
-                  >
-                    Verify & Unlock
-                  </button>
-                </div>
-              </form>
+                    {passcodeError && (
+                      <p className="text-center text-xs font-black text-red-600 bg-red-50 py-2 px-3 rounded border border-red-200">
+                        ⚠️ {passcodeError}
+                      </p>
+                    )}
 
-              
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsPasscodeModalOpen(false);
+                          setPasscodeInput('');
+                          setPasscodeError('');
+                        }}
+                        className="flex-1 rounded border-2 border-neutral-300 bg-neutral-100 py-2.5 text-xs font-black uppercase text-neutral-700 hover:bg-neutral-200 active:scale-95 transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 rounded border-2 border-white bg-red-600 py-2.5 text-xs font-black uppercase text-white shadow hover:bg-red-700 active:scale-95 transition-all"
+                      >
+                        Verify & Unlock
+                      </button>
+                    </div>
+                  </form>
+                </>
+              )}
             </motion.div>
           </motion.div>
         )}
