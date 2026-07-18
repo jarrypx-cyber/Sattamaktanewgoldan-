@@ -1,9 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = "https://lwkdudqnbwxlnmkudpq.supabase.co";
-const SUPABASE_KEY = "Sb_publishable_GFMh9Pa3nHXmCojo1AWZzA_BRLTTRQs";
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 interface Market {
   id?: string;
@@ -39,8 +34,9 @@ function App() {
 
   const fetchMarkets = async () => {
     try {
-      const { data, error } = await supabase.from('markets').select('*');
-      if (!error && data) {
+      const res = await fetch('/api/get-results');
+      const data = await res.json();
+      if (data && Array.isArray(data)) {
         setMarkets(data);
       }
     } catch (err) {
@@ -51,17 +47,8 @@ function App() {
 
   useEffect(() => {
     fetchMarkets();
-
-    const subscription = supabase
-      .channel('public:markets')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'markets' }, () => {
-        fetchMarkets();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
+    const interval = setInterval(fetchMarkets, 15000); // 15 seconds auto refresh
+    return () => clearInterval(interval);
   }, []);
 
   const handleAddMarket = async (e: React.FormEvent) => {
@@ -70,34 +57,33 @@ function App() {
 
     const currentTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     
-    // Yahan hum explicitly saare columns bhej rahe hain taaki Supabase ko koi khali field na mile
-    const dataToSend = {
-      name: newMarket.name,
-      openTime: newMarket.openTime || '--',
-      closeTime: newMarket.closeTime || '--',
-      openPana: '***',
-      openSingle: '*',
-      closeSingle: '*',
-      closePana: '***',
-      status: 'LIVE',
-      lastUpdated: currentTime
-    };
-
-    console.log("Sending data:", dataToSend);
-
-    const { data, error } = await supabase
-      .from('markets')
-      .insert([dataToSend])
-      .select();
-
-    if (error) {
-      // Agar error aayega toh popup screen par dikhega ki database block kar raha hai ya columns match nahi ho rahe
-      alert("Database Error: " + error.message + " \nCode: " + error.code);
-    } else {
-      alert("🎉 Market successfully created!");
-      setShowAddForm(false);
-      setNewMarket({ name: '', openTime: '', closeTime: '', openPana: '***', openSingle: '*', closeSingle: '*', closePana: '***', status: 'LIVE', lastUpdated: '--' });
-      fetchMarkets();
+    try {
+      const res = await fetch('/api/get-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newMarket.name,
+          openTime: newMarket.openTime || '--',
+          closeTime: newMarket.closeTime || '--',
+          openPana: '***',
+          openSingle: '*',
+          closeSingle: '*',
+          closePana: '***',
+          status: 'LIVE',
+          lastUpdated: currentTime
+        })
+      });
+      
+      if (res.ok) {
+        alert("🎉 Market successfully created!");
+        setShowAddForm(false);
+        setNewMarket({ name: '', openTime: '', closeTime: '', openPana: '***', openSingle: '*', closeSingle: '*', closePana: '***', status: 'LIVE', lastUpdated: '--' });
+        fetchMarkets();
+      } else {
+        alert("Server responded with an error");
+      }
+    } catch (err) {
+      alert("Error: " + err);
     }
   };
 
@@ -107,24 +93,28 @@ function App() {
 
     const currentTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-    const { error } = await supabase
-      .from('markets')
-      .update({
-        openPana: editingMarket.openPana,
-        openSingle: editingMarket.openSingle,
-        closeSingle: editingMarket.closeSingle,
-        closePana: editingMarket.closePana,
-        status: editingMarket.status,
-        lastUpdated: currentTime
-      })
-      .eq('id', editingMarket.id);
+    try {
+      const res = await fetch('/api/get-results', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingMarket.id,
+          openPana: editingMarket.openPana,
+          openSingle: editingMarket.openSingle,
+          closeSingle: editingMarket.closeSingle,
+          closePana: editingMarket.closePana,
+          status: editingMarket.status,
+          lastUpdated: currentTime
+        })
+      });
 
-    if (error) {
-      alert("Update failed: " + error.message);
-    } else {
-      alert(`${editingMarket.name} Updated!`);
-      setEditingMarket(null);
-      fetchMarkets();
+      if (res.ok) {
+        alert(`${editingMarket.name} Updated!`);
+        setEditingMarket(null);
+        fetchMarkets();
+      }
+    } catch (err) {
+      alert("Update failed: " + err);
     }
   };
 
