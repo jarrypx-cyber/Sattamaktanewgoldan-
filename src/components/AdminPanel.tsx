@@ -168,11 +168,22 @@ export default function AdminPanel({
         await refreshParentMarkets();
         setTimeout(() => setAddMarketSuccess(''), 4000);
       } else {
-        const errorData = await response.json();
-        setAddMarketError(errorData.error || 'Server responded with an error');
+        let errorText = 'Server responded with an error';
+        try {
+          const errorData = await response.json();
+          errorText = errorData.error || JSON.stringify(errorData) || errorText;
+        } catch (jsonErr) {
+          try {
+            errorText = await response.text();
+          } catch (textErr) {
+            errorText = `HTTP ${response.status}: ${response.statusText}`;
+          }
+        }
+        setAddMarketError(errorText);
       }
     } catch (err) {
-      setAddMarketError('Bypass system failure: Server responded with an error');
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setAddMarketError(`Bypass system failure: Server responded with error: ${errMsg}`);
     }
   };
 
@@ -213,7 +224,10 @@ export default function AdminPanel({
     setEditError('');
 
     const targetMarket = markets.find(m => m.id === selectedMarketId);
-    if (!targetMarket) return;
+    if (!targetMarket) {
+      setEditError('Selected market not found in the frontend state!');
+      return;
+    }
 
     try {
       const payload = {
@@ -254,11 +268,22 @@ export default function AdminPanel({
 
         setTimeout(() => setSuccessMsg(''), 4000);
       } else {
-        const errorData = await response.json();
-        setEditError(errorData.error || 'Server responded with an error');
+        let errorText = 'Server responded with an error';
+        try {
+          const errorData = await response.json();
+          errorText = errorData.error || JSON.stringify(errorData) || errorText;
+        } catch (jsonErr) {
+          try {
+            errorText = await response.text();
+          } catch (textErr) {
+            errorText = `HTTP ${response.status}: ${response.statusText}`;
+          }
+        }
+        setEditError(errorText);
       }
     } catch (err) {
-      setEditError('Bypass system failure: Server responded with an error');
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setEditError(`Bypass system failure: Server responded with error: ${errMsg}`);
     }
   };
 
