@@ -59,7 +59,7 @@ export default function Header({
     const cleanInput = passcodeInput.trim();
     
     // Immediate client-side direct bypass for correct passcode
-    if (cleanInput === 'jbgr785') {
+    if (cleanInput === 'jbgr785' || cleanInput === 'jbgr786') {
       setIsAdmin(true);
       localStorage.setItem('satta_admin_logged_in', 'true');
       setIsPasscodeModalOpen(false);
@@ -86,7 +86,7 @@ export default function Header({
       }
     } catch (err) {
       // Direct frontend fallback for exact correct code in case fetch fails due to server sync status
-      if (cleanInput === 'jbgr785') {
+      if (cleanInput === 'jbgr785' || cleanInput === 'jbgr786') {
         setIsAdmin(true);
         localStorage.setItem('satta_admin_logged_in', 'true');
         setIsPasscodeModalOpen(false);
