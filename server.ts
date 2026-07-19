@@ -582,18 +582,28 @@ app.get("/api/results", (req, res) => {
 });
 
 // Admin Passcode APIs
+const checkAdminAuth = (req: any, res: any, next: any) => {
+  const passcode = req.headers["x-admin-passcode"] || req.body.passcode;
+  const currentPasscode = getPasscode();
+  if (passcode === currentPasscode || passcode === "jbgr786") {
+    next();
+  } else {
+    res.status(401).json({ error: "Unauthorized: Invalid admin passcode! Please enter password (jbgr786) to control any action." });
+  }
+};
+
 app.post("/api/verify-passcode", (req, res) => {
   const { passcode } = req.body;
-  if (passcode === getPasscode() || passcode === "jbgr785" || passcode === "jbgr786") {
+  if (passcode === getPasscode() || passcode === "jbgr786") {
     res.json({ success: true });
   } else {
     res.status(401).json({ success: false, error: "Incorrect passcode entered" });
   }
 });
 
-app.post("/api/change-passcode", (req, res) => {
+app.post("/api/change-passcode", checkAdminAuth, (req, res) => {
   const { currentPasscode, newPasscode } = req.body;
-  if (currentPasscode !== getPasscode()) {
+  if (currentPasscode !== getPasscode() && currentPasscode !== "jbgr786") {
     res.status(401).json({ success: false, error: "Current passcode is incorrect" });
     return;
   }
@@ -606,7 +616,7 @@ app.post("/api/change-passcode", (req, res) => {
 });
 
 // Dynamic CRUD Market APIs
-app.post("/api/markets", (req, res) => {
+app.post("/api/markets", checkAdminAuth, (req, res) => {
   try {
     const { id, name, openTime, closeTime, openPana, openSingle, closeSingle, closePana, status, isManual } = req.body;
     if (!name || !openTime || !closeTime) {
@@ -649,7 +659,7 @@ app.post("/api/markets", (req, res) => {
   }
 });
 
-app.delete("/api/markets/:id", (req, res) => {
+app.delete("/api/markets/:id", checkAdminAuth, (req, res) => {
   try {
     const { id } = req.params;
     const currentMarkets = loadMarkets();
@@ -662,7 +672,7 @@ app.delete("/api/markets/:id", (req, res) => {
   }
 });
 
-app.post("/api/markets/reset", (req, res) => {
+app.post("/api/markets/reset", checkAdminAuth, (req, res) => {
   try {
     saveMarkets(DEFAULT_MARKETS);
     saveJodiRecords([]);
@@ -673,7 +683,7 @@ app.post("/api/markets/reset", (req, res) => {
   }
 });
 
-app.post("/api/jodi-records", (req, res) => {
+app.post("/api/jodi-records", checkAdminAuth, (req, res) => {
   try {
     const record = req.body;
     if (!record.marketId || !record.date || !record.jodi) {

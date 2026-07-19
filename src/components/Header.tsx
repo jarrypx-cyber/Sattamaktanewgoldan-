@@ -59,9 +59,10 @@ export default function Header({
     const cleanInput = passcodeInput.trim();
     
     // Immediate client-side direct bypass for correct passcode
-    if (cleanInput === 'jbgr785' || cleanInput === 'jbgr786') {
+    if (cleanInput === 'jbgr786') {
       setIsAdmin(true);
       localStorage.setItem('satta_admin_logged_in', 'true');
+      localStorage.setItem('satta_admin_passcode', cleanInput);
       setIsPasscodeModalOpen(false);
       setPasscodeInput('');
       setPasscodeError('');
@@ -77,6 +78,7 @@ export default function Header({
       if (response.ok) {
         setIsAdmin(true);
         localStorage.setItem('satta_admin_logged_in', 'true');
+        localStorage.setItem('satta_admin_passcode', cleanInput);
         setIsPasscodeModalOpen(false);
         setPasscodeInput('');
         setPasscodeError('');
@@ -86,9 +88,10 @@ export default function Header({
       }
     } catch (err) {
       // Direct frontend fallback for exact correct code in case fetch fails due to server sync status
-      if (cleanInput === 'jbgr785' || cleanInput === 'jbgr786') {
+      if (cleanInput === 'jbgr786') {
         setIsAdmin(true);
         localStorage.setItem('satta_admin_logged_in', 'true');
+        localStorage.setItem('satta_admin_passcode', cleanInput);
         setIsPasscodeModalOpen(false);
         setPasscodeInput('');
         setPasscodeError('');
@@ -384,6 +387,7 @@ export default function Header({
                         onClick={() => {
                           setIsAdmin(false);
                           localStorage.removeItem('satta_admin_logged_in');
+                          localStorage.removeItem('satta_admin_passcode');
                           setIsPasscodeModalOpen(false);
                         }}
                         className="rounded border border-red-500 bg-red-50 px-3.5 py-1.5 text-xs font-black uppercase text-red-600 hover:bg-red-100 active:scale-95 transition"

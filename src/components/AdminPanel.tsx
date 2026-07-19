@@ -158,7 +158,10 @@ export default function AdminPanel({
 
       const response = await fetch("/api/markets", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-admin-passcode": localStorage.getItem("satta_admin_passcode") || ""
+        },
         body: JSON.stringify(payload),
       });
 
@@ -201,7 +204,10 @@ export default function AdminPanel({
 
     try {
       const response = await fetch(`/api/markets/${deleteMarketId}`, {
-        method: "DELETE"
+        method: "DELETE",
+        headers: {
+          "x-admin-passcode": localStorage.getItem("satta_admin_passcode") || ""
+        }
       });
 
       if (response.ok) {
@@ -245,7 +251,10 @@ export default function AdminPanel({
 
       const response = await fetch("/api/markets", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-admin-passcode": localStorage.getItem("satta_admin_passcode") || ""
+        },
         body: JSON.stringify(payload),
       });
 
@@ -316,7 +325,10 @@ export default function AdminPanel({
     try {
       const response = await fetch("/api/jodi-records", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-admin-passcode": localStorage.getItem("satta_admin_passcode") || ""
+        },
         body: JSON.stringify(newRecord),
       });
 
@@ -353,7 +365,10 @@ export default function AdminPanel({
     try {
       const response = await fetch("/api/change-passcode", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-admin-passcode": localStorage.getItem("satta_admin_passcode") || ""
+        },
         body: JSON.stringify({
           currentPasscode: currentPasscode.trim(),
           newPasscode: newPasscode.trim()
@@ -386,7 +401,10 @@ export default function AdminPanel({
   const handleServerReset = async () => {
     try {
       const response = await fetch("/api/markets/reset", {
-        method: "POST"
+        method: "POST",
+        headers: {
+          "x-admin-passcode": localStorage.getItem("satta_admin_passcode") || ""
+        }
       });
       if (response.ok) {
         onResetData(); // Reset client state
