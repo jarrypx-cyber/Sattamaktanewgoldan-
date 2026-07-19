@@ -284,7 +284,7 @@ export default function App() {
                             setActiveTab('chart');
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                           }}
-                          className="absolute left-2.5 top-1/2 -translate-y-1/2 bg-[#000080] hover:bg-[#000066] text-white font-extrabold text-[9px] uppercase tracking-wider py-4 px-2 rounded-l border border-blue-900 shadow-md active:scale-95 transition cursor-pointer"
+                          className="absolute left-2.5 top-1/2 -translate-y-1/2 bg-[#6b21a8] hover:bg-[#581c87] text-white font-extrabold text-[9px] uppercase tracking-wider py-4 px-2 rounded-l border border-[#581c87] shadow-md active:scale-95 transition cursor-pointer"
                           title="Open Jodi Chart"
                         >
                           J<br/>O<br/>D<br/>I
@@ -297,7 +297,7 @@ export default function App() {
                             setActiveTab('chart');
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                           }}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-[#800000] hover:bg-[#660000] text-white font-extrabold text-[9px] uppercase tracking-wider py-4 px-1.5 rounded-r border border-red-950 shadow-md active:scale-95 transition cursor-pointer"
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-[#701a75] hover:bg-[#58125e] text-white font-extrabold text-[9px] uppercase tracking-wider py-4 px-1.5 rounded-r border border-[#58125e] shadow-md active:scale-95 transition cursor-pointer"
                           title="Open Panel Chart"
                         >
                           P<br/>E<br/>N<br/>A<br/>L
