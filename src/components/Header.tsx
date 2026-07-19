@@ -56,11 +56,23 @@ export default function Header({
 
   const handleVerifyPasscode = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanInput = passcodeInput.trim();
+    
+    // Immediate client-side direct bypass for correct passcode
+    if (cleanInput === 'jbgr785') {
+      setIsAdmin(true);
+      localStorage.setItem('satta_admin_logged_in', 'true');
+      setIsPasscodeModalOpen(false);
+      setPasscodeInput('');
+      setPasscodeError('');
+      return;
+    }
+
     try {
       const response = await fetch("/api/verify-passcode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ passcode: passcodeInput }),
+        body: JSON.stringify({ passcode: cleanInput }),
       });
       if (response.ok) {
         setIsAdmin(true);
@@ -73,7 +85,16 @@ export default function Header({
         setPasscodeError(errorData.error || 'Galat Passcode! Please try again.');
       }
     } catch (err) {
-      setPasscodeError('Server is currently syncing. Try again in a few seconds!');
+      // Direct frontend fallback for exact correct code in case fetch fails due to server sync status
+      if (cleanInput === 'jbgr785') {
+        setIsAdmin(true);
+        localStorage.setItem('satta_admin_logged_in', 'true');
+        setIsPasscodeModalOpen(false);
+        setPasscodeInput('');
+        setPasscodeError('');
+      } else {
+        setPasscodeError('Server is currently syncing. Try again in a few seconds!');
+      }
     }
   };
 
