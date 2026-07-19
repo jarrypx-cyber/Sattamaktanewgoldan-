@@ -54,17 +54,26 @@ export default function Header({
     }
   };
 
-  const handleVerifyPasscode = (e: React.FormEvent) => {
+  const handleVerifyPasscode = async (e: React.FormEvent) => {
     e.preventDefault();
-    const correctPasscode = localStorage.getItem('satta_admin_passcode') || 'jbgr786';
-    if (passcodeInput === correctPasscode) {
-      setIsAdmin(true);
-      localStorage.setItem('satta_admin_logged_in', 'true');
-      setIsPasscodeModalOpen(false);
-      setPasscodeInput('');
-      setPasscodeError('');
-    } else {
-      setPasscodeError('Galat Passcode! Please try again.');
+    try {
+      const response = await fetch("/api/verify-passcode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ passcode: passcodeInput }),
+      });
+      if (response.ok) {
+        setIsAdmin(true);
+        localStorage.setItem('satta_admin_logged_in', 'true');
+        setIsPasscodeModalOpen(false);
+        setPasscodeInput('');
+        setPasscodeError('');
+      } else {
+        const errorData = await response.json();
+        setPasscodeError(errorData.error || 'Galat Passcode! Please try again.');
+      }
+    } catch (err) {
+      setPasscodeError('Server is currently syncing. Try again in a few seconds!');
     }
   };
 
@@ -175,42 +184,42 @@ export default function Header({
 
   return (
     <header className="relative w-full px-4 pt-6 pb-2 md:px-8">
-      {/* Upper golden decorative stripe */}
-      <div className="absolute top-0 left-0 h-[4px] w-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 shadow-sm" />
+      {/* Upper classic maroon/golden stripe */}
+      <div className="absolute top-0 left-0 h-[5px] w-full bg-gradient-to-r from-[#800000] via-[#ffd700] to-[#800000] shadow-sm" />
 
       <div className="mx-auto flex max-w-4xl flex-col items-center gap-5">
         
-        {/* DPBOSS / MATKAONE inspired Logo & Brand Block (Premium Dark Navy & Gold Style) */}
-        <div className="w-full bg-[#0a142c] text-white p-6 text-center border-4 border-[#ffd700] rounded-xl shadow-2xl flex flex-col items-center justify-center gap-2 hover:border-yellow-400 transition-all">
-          <div className="text-[#ffd700] text-4xl md:text-6xl font-black tracking-wider uppercase drop-shadow-lg" style={{ fontFamily: 'Georgia, serif', textShadow: '2px 2px 4px rgba(0,0,0,0.6)' }}>
+        {/* DPBOSS / MATKAONE inspired Logo & Brand Block (Cream / Classic Light Dpboss Style) */}
+        <div className="w-full bg-[#ffeedb] text-[#800000] p-6 text-center border-4 border-[#800000] rounded-xl shadow-lg flex flex-col items-center justify-center gap-2 hover:border-[#000080] transition-all">
+          <div className="text-[#800000] text-4xl md:text-6xl font-black tracking-wider uppercase drop-shadow-sm" style={{ fontFamily: 'Georgia, serif', textShadow: '1px 1px 2px rgba(0,0,0,0.1)' }}>
             MATKAONE
           </div>
-          <div className="text-white text-lg md:text-2xl font-black tracking-wide uppercase font-sans">
+          <div className="text-[#000080] text-lg md:text-2xl font-black tracking-wide uppercase font-sans">
             KALYAN RESULT | NEW GOLDEN DAY
           </div>
-          <div className="text-[#ffd700] text-sm md:text-lg font-black tracking-widest uppercase">
+          <div className="text-[#800000] text-sm md:text-lg font-black tracking-widest uppercase">
             👑 Golden Sagar Matka Results 👑
           </div>
-          <div className="text-green-400 text-xs md:text-sm font-extrabold tracking-widest uppercase bg-black/40 px-3 py-1 rounded border border-green-500/30">
+          <div className="text-green-800 text-xs md:text-sm font-extrabold tracking-widest uppercase bg-green-50 px-3 py-1 rounded border border-green-600/40">
             FASTEST LIVE UPDATE • 100% SECONDS-LEVEL SYNC
           </div>
-          <div className="bg-red-600 text-white text-xs md:text-sm font-black uppercase px-4 py-1.5 rounded-md border-2 border-white shadow-md animate-pulse mt-1">
+          <div className="bg-red-600 text-white text-xs md:text-sm font-black uppercase px-4 py-1.5 rounded-md border-2 border-[#800000] shadow-md animate-pulse mt-1">
             🔥 SATTAMATKA AUTOMATIC LIVE SYSTEM BOARD 🔥
           </div>
-          <div className="text-yellow-300 text-xs md:text-sm font-black uppercase mt-1 flex items-center gap-2 flex-wrap justify-center">
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-green-500 animate-ping"></span>
+          <div className="text-[#000080] text-xs md:text-sm font-black uppercase mt-1 flex items-center gap-2 flex-wrap justify-center">
+            <span className="flex items-center gap-1.5 text-[#800000]">
+              <span className="h-2 w-2 rounded-full bg-green-600 animate-ping"></span>
               👤 Helpline Operator :
             </span>
-            <span className="text-white font-mono bg-slate-900 px-3 py-1 rounded border border-yellow-500/40 select-all tracking-wider font-black">8516974201</span>
+            <span className="text-[#000080] font-mono bg-white px-3 py-1 rounded border border-[#000080]/30 select-all tracking-wider font-black">8516974201</span>
           </div>
         </div>
 
         {/* Live Clock, Calendar & Toggles bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 w-full bg-[#0d1b3e] border-2 border-[#ffd700] rounded-xl p-3.5 shadow-xl text-white">
+        <div className="flex flex-wrap items-center justify-between gap-3 w-full bg-[#ffeedb] border-2 border-[#800000] rounded-xl p-3.5 shadow-md text-[#800000]">
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-yellow-400 animate-spin-slow" />
-            <span className="text-xs font-black tracking-wider font-mono text-yellow-300 uppercase">{time}</span>
+            <Clock className="h-4 w-4 text-[#000080] animate-spin-slow" />
+            <span className="text-xs font-black tracking-wider font-mono text-[#000080] uppercase">{time}</span>
           </div>
           
           <div className="flex items-center gap-2.5">
@@ -219,19 +228,19 @@ export default function Header({
               onClick={toggleNotifications}
               className={`flex items-center gap-1.5 rounded border-2 px-3 py-1 text-xs font-black transition-all duration-300 ${
                 notificationsEnabled
-                  ? 'border-red-600 bg-red-950 text-red-200 hover:bg-red-900'
-                  : 'border-green-600 bg-green-950 text-green-200 hover:bg-green-900'
+                  ? 'border-red-600 bg-red-50 text-red-700 hover:bg-red-100'
+                  : 'border-neutral-300 bg-neutral-50 text-neutral-600 hover:bg-neutral-100'
               }`}
               title={notificationsEnabled ? "Notifications enabled" : "Turn on result notifications"}
             >
               {notificationsEnabled ? (
                 <>
-                  <Bell className="h-3.5 w-3.5 text-red-400 animate-bounce" />
+                  <Bell className="h-3.5 w-3.5 text-red-600 animate-bounce" />
                   <span className="tracking-wide">NOTIFY: ON</span>
                 </>
               ) : (
                 <>
-                  <BellOff className="h-3.5 w-3.5 text-neutral-400" />
+                  <BellOff className="h-3.5 w-3.5 text-neutral-500" />
                   <span className="tracking-wide">NOTIFY: OFF</span>
                 </>
               )}
@@ -241,11 +250,11 @@ export default function Header({
               onClick={handleAdminClick}
               className={`flex items-center gap-1.5 rounded border-2 px-3 py-1 text-xs font-bold transition-all ${
                 isAdmin
-                  ? 'border-red-600 bg-red-950 text-red-200 font-black'
-                  : 'border-yellow-500 bg-slate-900 text-yellow-300 hover:bg-slate-800'
+                  ? 'border-red-600 bg-red-50 text-red-700 font-black'
+                  : 'border-[#000080] bg-white text-[#000080] hover:bg-[#ffeedb]'
               }`}
             >
-              <ShieldCheck className="h-3.5 w-3.5 text-red-500" />
+              <ShieldCheck className="h-3.5 w-3.5 text-red-600" />
               {isAdmin ? 'ADMIN ACTIVE' : 'ADMIN PANEL'}
             </button>
           </div>
@@ -254,7 +263,7 @@ export default function Header({
 
       {/* Navigation Tabs */}
       <div className="mx-auto mt-5 max-w-4xl">
-        <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#0a142c] p-1.5 border-2 border-[#ffd700] shadow-2xl">
+        <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#ffeedb] p-1.5 border-2 border-[#800000] shadow-md">
           {tabs.map((tab) => {
             const isSelected = activeTab === tab.id;
             return (
@@ -263,20 +272,20 @@ export default function Header({
                 onClick={() => setActiveTab(tab.id)}
                 className={`group relative flex flex-col items-center justify-center rounded-lg py-2.5 transition-all duration-300 ${
                   isSelected
-                    ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg font-black border border-red-500'
-                    : 'bg-[#121f42] text-slate-300 hover:bg-[#1a2d5e] hover:text-white font-extrabold'
+                    ? 'bg-[#800000] text-white shadow-md font-black border border-[#800000]'
+                    : 'bg-white text-[#800000] hover:bg-white/85 border border-transparent font-extrabold shadow-sm'
                 }`}
               >
                 <span className="text-xs font-black tracking-wider">{tab.label}</span>
                 <span
                   className={`text-[9px] uppercase tracking-widest ${
-                    isSelected ? 'text-yellow-300 font-black' : 'text-slate-400'
+                    isSelected ? 'text-yellow-300 font-black' : 'text-neutral-500'
                   }`}
                 >
                   {tab.subtitle}
                 </span>
                 {isSelected && (
-                  <span className="absolute -bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rotate-45 bg-red-600" />
+                  <span className="absolute -bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rotate-45 bg-[#800000]" />
                 )}
               </button>
             );
@@ -285,14 +294,14 @@ export default function Header({
       </div>
 
       {/* Marquee Ticker */}
-      <div className="mt-4 overflow-hidden rounded-lg bg-[#b30000] py-2.5 border-2 border-[#ffd700] shadow-md">
-        <div className="animate-marquee whitespace-nowrap text-center text-xs font-black uppercase tracking-wider text-white">
+      <div className="mt-4 overflow-hidden rounded-lg bg-white py-2.5 border-2 border-[#800000] shadow-sm">
+        <div className="animate-marquee whitespace-nowrap text-center text-xs font-black uppercase tracking-wider text-[#800000]">
           <span className="inline-block px-4">⚡ Matkaone.com Par Aapka Swagat Hai! ⚡</span>
-          <span className="inline-block px-4 text-yellow-300">•</span>
-          <span className="inline-block px-4">Sabse Tez, Sahi Aur Sateek Live Open Aur Close Results Sirf Yahi Milenge!</span>
-          <span className="inline-block px-4 text-yellow-300">•</span>
+          <span className="inline-block px-4 text-[#000080]">•</span>
+          <span className="inline-block px-4 text-[#000080]">Sabse Tez, Sahi Aur Sateek Live Open Aur Close Results Sirf Yahi Milenge!</span>
+          <span className="inline-block px-4 text-[#000080]">•</span>
           <span className="inline-block px-4">Niche Diye Purane Jodi Chart Me Pichle Weeks Ki Sabhi Jodia Upalabdh Hain!</span>
-          <span className="inline-block px-4 text-yellow-300">•</span>
+          <span className="inline-block px-4 text-[#000080]">•</span>
           <span className="inline-block px-4">Apna Result Time Par Update Karne Ke Liye Admin Panel Ka Upyog Karen!</span>
         </div>
       </div>
@@ -333,19 +342,19 @@ export default function Header({
               exit={{ scale: 0.95, y: 20 }}
               className={`relative w-full rounded-2xl border-4 p-6 shadow-2xl transition-all duration-300 ${
                 isAdmin 
-                  ? 'max-w-4xl max-h-[90vh] overflow-y-auto bg-[#0a142c] border-yellow-500 text-white' 
+                  ? 'max-w-4xl max-h-[90vh] overflow-y-auto bg-[#fffdfa] border-[#800000] text-neutral-900' 
                   : 'max-w-md bg-white border-red-600 text-neutral-900'
               }`}
             >
               {isAdmin ? (
                 <div className="text-left">
-                  <div className="flex items-center justify-between border-b-2 border-slate-800 pb-4 mb-6">
+                  <div className="flex items-center justify-between border-b-2 border-neutral-200 pb-4 mb-6">
                     <div className="flex items-center gap-2">
                       <span className="relative flex h-3.5 w-3.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-600 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-green-500"></span>
                       </span>
-                      <h3 className="text-lg font-black text-yellow-400 uppercase tracking-wider">
+                      <h3 className="text-lg font-black text-[#800000] uppercase tracking-wider">
                         👑 OWNER ADMIN PANEL
                       </h3>
                     </div>
@@ -356,13 +365,13 @@ export default function Header({
                           localStorage.removeItem('satta_admin_logged_in');
                           setIsPasscodeModalOpen(false);
                         }}
-                        className="rounded border border-red-500 bg-red-950/40 px-3.5 py-1.5 text-xs font-black uppercase text-red-400 hover:bg-red-900/40 active:scale-95 transition"
+                        className="rounded border border-red-500 bg-red-50 px-3.5 py-1.5 text-xs font-black uppercase text-red-600 hover:bg-red-100 active:scale-95 transition"
                       >
                         Log Out
                       </button>
                       <button
                         onClick={() => setIsPasscodeModalOpen(false)}
-                        className="rounded border border-slate-700 bg-slate-800 px-3.5 py-1.5 text-xs font-black uppercase text-slate-300 hover:bg-slate-700 active:scale-95 transition"
+                        className="rounded border border-neutral-300 bg-neutral-100 px-3.5 py-1.5 text-xs font-black uppercase text-neutral-700 hover:bg-neutral-200 active:scale-95 transition"
                       >
                         Close
                       </button>

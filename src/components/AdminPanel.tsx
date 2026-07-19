@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, Save, Plus, RotateCcw, CheckCircle2, Sliders, Calendar } from 'lucide-react';
+import { ShieldAlert, Save, Plus, RotateCcw, CheckCircle2, Sliders, Calendar, Trash2 } from 'lucide-react';
 import { Market, JodiRecord } from '../types';
 
 interface AdminPanelProps {
@@ -19,19 +19,44 @@ export default function AdminPanel({
   googleVerification,
   onUpdateGoogleVerification,
 }: AdminPanelProps) {
+  // Helper to re-fetch latest markets from backend and sync parent state
+  const refreshParentMarkets = async () => {
+    try {
+      const res = await fetch("/api/get-results");
+      const json = await res.json();
+      if (json.markets) {
+        onUpdateMarkets(json.markets);
+      }
+    } catch (e) {
+      console.error("Error refreshing markets:", e);
+    }
+  };
+
+  // Add Market Form States
+  const [newMarketName, setNewMarketName] = useState<string>('');
+  const [newMarketOpenTime, setNewMarketOpenTime] = useState<string>('12:00 PM');
+  const [newMarketCloseTime, setNewMarketCloseTime] = useState<string>('01:00 PM');
+  const [addMarketSuccess, setAddMarketSuccess] = useState<string>('');
+  const [addMarketError, setAddMarketError] = useState<string>('');
+
+  // Delete Market Form States
+  const [deleteMarketId, setDeleteMarketId] = useState<string>('');
+  const [deleteSuccess, setDeleteSuccess] = useState<string>('');
+
   // Market Edit Form State
-  const [selectedMarketId, setSelectedMarketId] = useState<string>(markets[0]?.id || '');
+  const [selectedMarketId, setSelectedMarketId] = useState<string>('');
   const [status, setStatus] = useState<'OPEN' | 'ACTIVE_CLOSE' | 'CLOSED'>('OPEN');
   const [openPana, setOpenPana] = useState<string>('');
   const [openSingle, setOpenSingle] = useState<string>('');
   const [closeSingle, setCloseSingle] = useState<string>('');
   const [closePana, setClosePana] = useState<string>('');
   const [successMsg, setSuccessMsg] = useState<string>('');
+  const [editError, setEditError] = useState<string>('');
 
   // Historical Record Form State
   const [historyDate, setHistoryDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [historyDay, setHistoryDay] = useState<string>('Monday');
-  const [historyMarketId, setHistoryMarketId] = useState<string>(markets[0]?.id || '');
+  const [historyMarketId, setHistoryMarketId] = useState<string>('');
   const [historyOpenPana, setHistoryOpenPana] = useState<string>('');
   const [historyJodi, setHistoryJodi] = useState<string>('');
   const [historyClosePana, setHistoryClosePana] = useState<string>('');
@@ -50,6 +75,15 @@ export default function AdminPanel({
   const [googleVerifySuccessMsg, setGoogleVerifySuccessMsg] = useState<string>('');
 
   const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  // Initialize dropdowns when markets list loads
+  useEffect(() => {
+    if (markets.length > 0) {
+      if (!selectedMarketId) setSelectedMarketId(markets[0].id);
+      if (!deleteMarketId) setDeleteMarketId(markets[0].id);
+      if (!historyMarketId) setHistoryMarketId(markets[0].id);
+    }
+  }, [markets]);
 
   // Auto-calculate single digit from 3-digit pana (sum mod 10)
   const calculateSingleFromPana = (pana: string): string => {
@@ -98,61 +132,147 @@ export default function AdminPanel({
     }
   }, [historyDate]);
 
-  // Save current market updates
-  const handleSaveMarket = (e: React.FormEvent) => {
+  // Handle adding a new market game (POST /api/markets)
+  const handleAddMarket = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAddMarketError('');
+    setAddMarketSuccess('');
 
-    const updated = markets.map((m) => {
-      if (m.id === selectedMarketId) {
-        // format current time for stamp
-        const now = new Date();
-        const stamp = `Today, ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
-
-        return {
-          ...m,
-          status,
-          openPana: openPana.trim() || '???',
-          openSingle: openSingle.trim() || '?',
-          closeSingle: closeSingle.trim() || '?',
-          closePana: closePana.trim() || '???',
-          lastUpdated: stamp,
-        };
-      }
-      return m;
-    });
-
-    onUpdateMarkets(updated);
-    
-    // Dispatch custom event for real-time sound & visual notifications
-    const selectedMarket = markets.find((m) => m.id === selectedMarketId);
-    if (selectedMarket) {
-      const event = new CustomEvent('satta-result-updated', {
-        detail: {
-          marketName: selectedMarket.name,
-          openPana: openPana.trim() || '???',
-          openSingle: openSingle.trim() || '?',
-          closeSingle: closeSingle.trim() || '?',
-          closePana: closePana.trim() || '???',
-          status: status,
-        }
-      });
-      window.dispatchEvent(event);
+    if (!newMarketName.trim()) {
+      setAddMarketError('Kripya Game Ka Name Enter Karein!');
+      return;
     }
 
-    setSuccessMsg('Market details updated successfully! Live board updated.');
-    setTimeout(() => setSuccessMsg(''), 4000);
+    try {
+      const payload = {
+        name: newMarketName.toUpperCase().trim(),
+        openTime: newMarketOpenTime.trim(),
+        closeTime: newMarketCloseTime.trim(),
+        openPana: "???",
+        openSingle: "?",
+        closeSingle: "?",
+        closePana: "???",
+        status: "CLOSED" as const,
+        isManual: true,
+      };
+
+      const response = await fetch("/api/markets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        setAddMarketSuccess(`Naya game "${newMarketName.toUpperCase()}" database me successfully jod diya gaya!`);
+        setNewMarketName('');
+        await refreshParentMarkets();
+        setTimeout(() => setAddMarketSuccess(''), 4000);
+      } else {
+        const errorData = await response.json();
+        setAddMarketError(errorData.error || 'Server responded with an error');
+      }
+    } catch (err) {
+      setAddMarketError('Bypass system failure: Server responded with an error');
+    }
   };
 
-  // Add new history row
-  const handleAddHistory = (e: React.FormEvent) => {
+  // Handle deleting a market game (DELETE /api/markets/:id)
+  const handleDeleteMarket = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!deleteMarketId) return;
+
+    const targetGame = markets.find(m => m.id === deleteMarketId);
+    if (!targetGame) return;
+
+    if (!window.confirm(`Kya aap sach me "${targetGame.name}" ko hamesha ke liye delete karna chahte hain?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/markets/${deleteMarketId}`, {
+        method: "DELETE"
+      });
+
+      if (response.ok) {
+        setDeleteSuccess(`Game "${targetGame.name}" database se poori tarah delete ho gaya!`);
+        setDeleteMarketId('');
+        await refreshParentMarkets();
+        setTimeout(() => setDeleteSuccess(''), 4000);
+      } else {
+        alert('Could not delete market game');
+      }
+    } catch (err) {
+      alert('Network error deleting market game');
+    }
+  };
+
+  // Save current market updates (POST /api/markets)
+  const handleSaveMarket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSuccessMsg('');
+    setEditError('');
+
+    const targetMarket = markets.find(m => m.id === selectedMarketId);
+    if (!targetMarket) return;
+
+    try {
+      const payload = {
+        id: selectedMarketId,
+        name: targetMarket.name,
+        openTime: targetMarket.openTime,
+        closeTime: targetMarket.closeTime,
+        status,
+        openPana: openPana.trim() || '???',
+        openSingle: openSingle.trim() || '?',
+        closeSingle: closeSingle.trim() || '?',
+        closePana: closePana.trim() || '???',
+        isManual: true,
+      };
+
+      const response = await fetch("/api/markets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        setSuccessMsg('Market details updated successfully on the server! Live board refreshed.');
+        await refreshParentMarkets();
+
+        // Dispatch local custom event for real-time sound & visual notifications
+        const event = new CustomEvent('satta-result-updated', {
+          detail: {
+            marketName: targetMarket.name,
+            openPana: openPana.trim() || '???',
+            openSingle: openSingle.trim() || '?',
+            closeSingle: closeSingle.trim() || '?',
+            closePana: closePana.trim() || '???',
+            status: status,
+          }
+        });
+        window.dispatchEvent(event);
+
+        setTimeout(() => setSuccessMsg(''), 4000);
+      } else {
+        const errorData = await response.json();
+        setEditError(errorData.error || 'Server responded with an error');
+      }
+    } catch (err) {
+      setEditError('Bypass system failure: Server responded with an error');
+    }
+  };
+
+  // Add new history row (POST /api/jodi-records)
+  const handleAddHistory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setHistoryErrorMsg('');
+    setHistorySuccessMsg('');
 
     const targetMarket = markets.find((m) => m.id === historyMarketId);
     if (!targetMarket) return;
 
     if (!historyOpenPana || historyJodi.length !== 2 || !historyClosePana) {
       setHistoryErrorMsg('Kripya Open Pana, 2-Digit Jodi, aur Close Pana sahi se fill karein!');
-      setHistorySuccessMsg('');
       setTimeout(() => setHistoryErrorMsg(''), 4000);
       return;
     }
@@ -163,49 +283,71 @@ export default function AdminPanel({
       day: historyDay,
       marketId: historyMarketId,
       marketName: targetMarket.name,
-      openPana: historyOpenPana,
-      jodi: historyJodi,
-      closePana: historyClosePana,
+      openPana: historyOpenPana.trim(),
+      jodi: historyJodi.trim(),
+      closePana: historyClosePana.trim(),
     };
 
-    onAddJodiRecord(newRecord);
-    setHistorySuccessMsg('Jodi Record added to old chart!');
-    setHistoryErrorMsg('');
-    
-    // reset history inputs
-    setHistoryOpenPana('');
-    setHistoryJodi('');
-    setHistoryClosePana('');
+    try {
+      const response = await fetch("/api/jodi-records", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newRecord),
+      });
 
-    setTimeout(() => setHistorySuccessMsg(''), 4000);
+      if (response.ok) {
+        onAddJodiRecord(newRecord); // Local sync
+        setHistorySuccessMsg('Jodi Record added to old chart on the server successfully!');
+        setHistoryOpenPana('');
+        setHistoryJodi('');
+        setHistoryClosePana('');
+        setTimeout(() => setHistorySuccessMsg(''), 4000);
+      } else {
+        setHistoryErrorMsg('Failed to save historical record to database');
+      }
+    } catch (err) {
+      setHistoryErrorMsg('Failed to save historical record: server bypass error');
+    }
   };
 
-  const handleChangePasscode = (e: React.FormEvent) => {
+  // Change Admin passcode (POST /api/change-passcode)
+  const handleChangePasscode = async (e: React.FormEvent) => {
     e.preventDefault();
-    const correctPasscode = localStorage.getItem('satta_admin_passcode') || 'jbgr786';
-    if (currentPasscode !== correctPasscode) {
-      setPasscodeSettingsErrorMsg('Pehle ka (current) passcode galat hai!');
-      setPasscodeSettingsSuccessMsg('');
-      return;
-    }
+    setPasscodeSettingsErrorMsg('');
+    setPasscodeSettingsSuccessMsg('');
+
     if (newPasscode.trim().length < 4) {
       setPasscodeSettingsErrorMsg('Naya passcode kam se kam 4 character ka hona chahiye!');
-      setPasscodeSettingsSuccessMsg('');
       return;
     }
     if (newPasscode !== confirmPasscode) {
       setPasscodeSettingsErrorMsg('Naya passcode aur Confirm passcode match nahi kar rahe!');
-      setPasscodeSettingsSuccessMsg('');
       return;
     }
 
-    localStorage.setItem('satta_admin_passcode', newPasscode.trim());
-    setPasscodeSettingsSuccessMsg('Passcode safaltapoorvak badal diya gaya hai!');
-    setPasscodeSettingsErrorMsg('');
-    setCurrentPasscode('');
-    setNewPasscode('');
-    setConfirmPasscode('');
-    setTimeout(() => setPasscodeSettingsSuccessMsg(''), 4000);
+    try {
+      const response = await fetch("/api/change-passcode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPasscode: currentPasscode.trim(),
+          newPasscode: newPasscode.trim()
+        }),
+      });
+
+      if (response.ok) {
+        setPasscodeSettingsSuccessMsg('Passcode safaltapoorvak badal diya gaya hai!');
+        setCurrentPasscode('');
+        setNewPasscode('');
+        setConfirmPasscode('');
+        setTimeout(() => setPasscodeSettingsSuccessMsg(''), 4000);
+      } else {
+        const errorData = await response.json();
+        setPasscodeSettingsErrorMsg(errorData.error || 'Purana passcode galat hai!');
+      }
+    } catch (err) {
+      setPasscodeSettingsErrorMsg('Passcode update server bypass error.');
+    }
   };
 
   const handleSaveGoogleVerification = (e: React.FormEvent) => {
@@ -215,12 +357,109 @@ export default function AdminPanel({
     setTimeout(() => setGoogleVerifySuccessMsg(''), 4000);
   };
 
+  // Call database reset API on server (POST /api/markets/reset)
+  const handleServerReset = async () => {
+    try {
+      const response = await fetch("/api/markets/reset", {
+        method: "POST"
+      });
+      if (response.ok) {
+        onResetData(); // Reset client state
+        await refreshParentMarkets();
+        setAppToast('Database reset to original seed data completely!', '🔄');
+      } else {
+        alert('Server failed to reset database');
+      }
+    } catch (err) {
+      alert('Network bypass error trying to reset databases');
+    }
+  };
+
+  const setAppToast = (text: string, icon: string) => {
+    // Dispatch custom toast notification
+    const ev = new CustomEvent('satta-result-updated', {
+      detail: { marketName: 'System', status: 'RESET', openPana: text }
+    });
+    window.dispatchEvent(ev);
+  };
+
   return (
     <div className="mx-auto max-w-5xl space-y-8 px-4 md:px-0">
 
+      {/* Grid containing ALL dynamic administrative controls */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
 
-        {/* Form 1: Edit Live Open & Close */}
+        {/* 1. Add a New Market Game Form */}
+        <div className="rounded-2xl border-2 border-green-500 bg-[#0a142c] p-5 shadow-2xl">
+          <div className="mb-4 flex items-center gap-2 border-b border-slate-800 pb-3">
+            <Plus className="h-4 w-4 text-green-400" />
+            <h3 className="text-sm font-black uppercase tracking-wider text-green-400">
+              Add New Market Game (Naya Game Jodein)
+            </h3>
+          </div>
+
+          <form onSubmit={handleAddMarket} className="space-y-4 text-xs font-semibold">
+            <div>
+              <label className="block font-black text-slate-300 mb-1.5">Game Name (uppercase):</label>
+              <input
+                type="text"
+                required
+                placeholder="E.g. KALYAN NIGHT"
+                value={newMarketName}
+                onChange={(e) => setNewMarketName(e.target.value)}
+                className="w-full rounded-lg bg-slate-950 border border-slate-800 text-white font-bold px-3 py-2 outline-none focus:border-green-500 shadow-inner uppercase"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-black text-slate-300 mb-1.5">Open Time:</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="E.g. 09:30 PM"
+                  value={newMarketOpenTime}
+                  onChange={(e) => setNewMarketOpenTime(e.target.value)}
+                  className="w-full rounded-lg bg-slate-950 border border-slate-800 text-white font-bold px-3 py-2 outline-none focus:border-green-500 shadow-inner"
+                />
+              </div>
+              <div>
+                <label className="block font-black text-slate-300 mb-1.5">Close Time:</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="E.g. 11:45 PM"
+                  value={newMarketCloseTime}
+                  onChange={(e) => setNewMarketCloseTime(e.target.value)}
+                  className="w-full rounded-lg bg-slate-950 border border-slate-800 text-white font-bold px-3 py-2 outline-none focus:border-green-500 shadow-inner"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-green-600 hover:bg-green-700 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all border border-green-500 cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              Add Market Game
+            </button>
+
+            {addMarketSuccess && (
+              <div className="flex items-center gap-1.5 text-green-400 font-bold bg-[#0a2322] border border-green-950 rounded-lg p-2.5 shadow-md">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                <span>{addMarketSuccess}</span>
+              </div>
+            )}
+            {addMarketError && (
+              <div className="flex items-center gap-1.5 text-rose-400 font-bold bg-[#2e0b12] border border-red-950 rounded-lg p-2.5 shadow-md">
+                <ShieldAlert className="h-4 w-4 shrink-0 text-rose-500" />
+                <span>{addMarketError}</span>
+              </div>
+            )}
+          </form>
+        </div>
+
+        {/* 2. Edit Live Open & Close Result Form */}
         <div className="rounded-2xl border-2 border-yellow-500 bg-[#0a142c] p-5 shadow-2xl">
           <div className="mb-4 flex items-center gap-2 border-b border-slate-800 pb-3">
             <Sliders className="h-4 w-4 text-[#ffd700]" />
@@ -255,9 +494,9 @@ export default function AdminPanel({
                     key={st}
                     type="button"
                     onClick={() => setStatus(st)}
-                    className={`rounded-lg py-2 border font-black uppercase tracking-wider transition-all shadow-md ${
+                    className={`rounded-lg py-2 border font-black uppercase tracking-wider transition-all shadow-md cursor-pointer ${
                       status === st
-                        ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-950'
+                        ? 'bg-red-600 border-red-600 text-white shadow-lg'
                         : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-yellow-500'
                     }`}
                   >
@@ -327,7 +566,7 @@ export default function AdminPanel({
             {/* Save Button */}
             <button
               type="submit"
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all border border-red-500"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all border border-red-500 cursor-pointer"
             >
               <Save className="h-4 w-4" />
               Save Live Result
@@ -335,14 +574,62 @@ export default function AdminPanel({
 
             {successMsg && (
               <div className="flex items-center gap-1.5 text-emerald-400 font-bold bg-[#0a2322] border border-emerald-950 rounded-lg p-2.5 shadow-md">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
                 <span>{successMsg}</span>
+              </div>
+            )}
+            {editError && (
+              <div className="flex items-center gap-1.5 text-rose-400 font-bold bg-[#2e0b12] border border-red-950 rounded-lg p-2.5 shadow-md">
+                <ShieldAlert className="h-4 w-4 shrink-0 text-rose-500" />
+                <span>{editError}</span>
               </div>
             )}
           </form>
         </div>
 
-        {/* Form 2: Add Jodi to Historical Chart */}
+        {/* 3. Delete any market game completely form */}
+        <div className="rounded-2xl border-2 border-red-500 bg-[#0a142c] p-5 shadow-2xl">
+          <div className="mb-4 flex items-center gap-2 border-b border-slate-800 pb-3">
+            <Trash2 className="h-4 w-4 text-red-500" />
+            <h3 className="text-sm font-black uppercase tracking-wider text-red-500">
+              Delete Market Game (Game Hataein)
+            </h3>
+          </div>
+
+          <form onSubmit={handleDeleteMarket} className="space-y-4 text-xs font-semibold">
+            <div>
+              <label className="block font-black text-slate-300 mb-1.5">Select Game to Delete completely:</label>
+              <select
+                value={deleteMarketId}
+                onChange={(e) => setDeleteMarketId(e.target.value)}
+                className="w-full rounded-lg bg-slate-950 border border-slate-800 text-white font-bold px-3 py-2 cursor-pointer outline-none focus:border-red-500 shadow-inner"
+              >
+                {markets.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="submit"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all border border-red-500 cursor-pointer"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Market Game
+            </button>
+
+            {deleteSuccess && (
+              <div className="flex items-center gap-1.5 text-emerald-400 font-bold bg-[#0a2322] border border-emerald-950 rounded-lg p-2.5 shadow-md">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                <span>{deleteSuccess}</span>
+              </div>
+            )}
+          </form>
+        </div>
+
+        {/* 4. Add Jodi to Historical Chart Form */}
         <div className="rounded-2xl border-2 border-yellow-500 bg-[#0a142c] p-5 shadow-2xl">
           <div className="mb-4 flex items-center gap-2 border-b border-slate-800 pb-3">
             <Plus className="h-4 w-4 text-[#ffd700]" />
@@ -358,7 +645,7 @@ export default function AdminPanel({
               <select
                 value={historyMarketId}
                 onChange={(e) => setHistoryMarketId(e.target.value)}
-                className="w-full rounded-lg bg-slate-950 border border-slate-800 text-white font-bold px-3 py-2 outline-none focus:border-yellow-500 shadow-inner"
+                className="w-full rounded-lg bg-slate-950 border border-slate-800 text-white font-bold px-3 py-2 outline-none focus:border-yellow-500 shadow-inner cursor-pointer"
               >
                 {markets.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -394,7 +681,7 @@ export default function AdminPanel({
             </div>
 
             {/* Pana & Jodi inputs */}
-            <div className="grid grid-cols-3 gap-3 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+            <div className="grid grid-cols-3 gap-3 rounded-lg border border-slate-800 bg-slate-950/40 p-3 font-semibold">
               <div>
                 <label className="block text-[10px] font-black text-slate-300 mb-1">Open Pana:</label>
                 <input
@@ -433,7 +720,7 @@ export default function AdminPanel({
             {/* Add Button */}
             <button
               type="submit"
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all border border-red-500"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all border border-red-500 cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               Add To Historical Chart
@@ -441,7 +728,7 @@ export default function AdminPanel({
 
             {historySuccessMsg && (
               <div className="flex items-center gap-1.5 text-emerald-400 font-bold bg-[#0a2322] border border-emerald-950 rounded-lg p-2 shadow-md">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
                 <span>{historySuccessMsg}</span>
               </div>
             )}
@@ -457,7 +744,7 @@ export default function AdminPanel({
 
       </div>
 
-      {/* Form 3: Change Admin Passcode / Security settings */}
+      {/* 5. Change Admin Passcode / Security settings Form */}
       <div className="rounded-2xl border-2 border-yellow-500 bg-[#0a142c] p-5 shadow-2xl">
         <div className="mb-4 flex items-center gap-2 border-b border-slate-800 pb-3">
           <ShieldAlert className="h-4 w-4 text-red-500 animate-pulse" />
@@ -505,7 +792,7 @@ export default function AdminPanel({
             <div className="w-full">
               {passcodeSettingsSuccessMsg && (
                 <div className="flex items-center gap-1.5 text-emerald-400 font-bold bg-[#0a2322] border border-emerald-950 rounded-lg p-2.5 shadow-md">
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
                   <span>{passcodeSettingsSuccessMsg}</span>
                 </div>
               )}
@@ -519,7 +806,7 @@ export default function AdminPanel({
 
             <button
               type="submit"
-              className="flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 px-6 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all border border-red-500 shrink-0"
+              className="flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 px-6 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all border border-red-500 shrink-0 cursor-pointer"
             >
               <Save className="h-4 w-4" />
               Update Passcode
@@ -528,7 +815,7 @@ export default function AdminPanel({
         </form>
       </div>
 
-      {/* Form 4: Google Search Console Domain Verification */}
+      {/* 6. Google Search Console Domain Verification Form */}
       <div className="rounded-2xl border-2 border-yellow-500 bg-[#0a142c] p-5 shadow-2xl">
         <div className="mb-4 flex items-center gap-2 border-b border-slate-800 pb-3">
           <Sliders className="h-4 w-4 text-yellow-400" />
@@ -538,7 +825,7 @@ export default function AdminPanel({
         </div>
 
         <p className="mb-4 text-xs font-semibold text-slate-300 leading-relaxed">
-          Google Search Console me site verify karne ke liye HTML tag verification code (jaise: <code className="bg-slate-950 px-1.5 py-0.5 border border-slate-800 text-yellow-400 font-mono font-bold rounded">google33ea89d196b678b8</code>) yahan enter karein. Yeh meta tag aapki live site par set ho jayega aur Google aapko single-click me verify kar lega!
+          Google Search Console me site verify karne ke liye HTML tag verification code enter karein.
         </p>
 
         <form onSubmit={handleSaveGoogleVerification} className="flex flex-col sm:flex-row gap-4 items-end text-xs font-semibold">
@@ -556,7 +843,7 @@ export default function AdminPanel({
 
           <button
             type="submit"
-            className="flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 px-6 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all border border-red-500 shrink-0 h-[38px]"
+            className="flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 px-6 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all border border-red-500 shrink-0 h-[38px] cursor-pointer"
           >
             <Save className="h-4 w-4" />
             Save Verification
@@ -565,7 +852,7 @@ export default function AdminPanel({
 
         {googleVerifySuccessMsg && (
           <div className="mt-3 flex items-center gap-1.5 text-emerald-400 font-bold bg-[#0a2322] border border-emerald-950 rounded-lg p-2.5 shadow-md">
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
             <span>{googleVerifySuccessMsg}</span>
           </div>
         )}
@@ -578,19 +865,19 @@ export default function AdminPanel({
             Restore Defaults / Clear Memory
           </h4>
           <p className="text-[11px] text-slate-300 mt-0.5 font-semibold">
-            Reset default markets and default historical seed charts. This will wipe out your local custom records.
+            Reset default markets and default historical seed charts on the central database.
           </p>
         </div>
         <button
           onClick={() => {
-            if (confirm('Kya aap sach me app memory ko reset karke original pre-seeded results load karna chahte hain?')) {
-              onResetData();
+            if (confirm('Kya aap sach me app central database ko reset karke original pre-seeded results load karna chahte hain?')) {
+              handleServerReset();
             }
           }}
-          className="flex items-center gap-2 rounded-lg border border-red-500 bg-slate-950 px-4 py-2 text-xs font-black text-red-400 hover:bg-slate-900 transition-colors shrink-0 shadow-md"
+          className="flex items-center gap-2 rounded-lg border border-red-500 bg-slate-950 px-4 py-2 text-xs font-black text-red-400 hover:bg-slate-900 transition-colors shrink-0 shadow-md cursor-pointer"
         >
           <RotateCcw className="h-3.5 w-3.5" />
-          RESET TO DEFAULT SEED
+          RESET CENTRAL DB TO SEED
         </button>
       </div>
 
