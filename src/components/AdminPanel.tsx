@@ -249,8 +249,8 @@ export default function AdminPanel({
         isManual: true,
       };
 
-      const response = await fetch("/api/markets", {
-        method: "POST",
+      const response = await fetch(`/api/markets/${selectedMarketId}`, {
+        method: "PUT",
         headers: { 
           "Content-Type": "application/json",
           "x-admin-passcode": localStorage.getItem("satta_admin_passcode") || ""
@@ -285,10 +285,10 @@ export default function AdminPanel({
           try {
             errorText = await response.text();
           } catch (textErr) {
-            errorText = `HTTP ${response.status}: ${response.statusText}`;
+            errorText = response.statusText || errorText;
           }
         }
-        setEditError(errorText);
+        setEditError(`HTTP ${response.status}: ${errorText}`);
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);

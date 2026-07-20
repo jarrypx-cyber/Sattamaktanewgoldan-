@@ -659,6 +659,93 @@ app.post("/api/markets", checkAdminAuth, (req, res) => {
   }
 });
 
+app.put("/api/markets/:id", checkAdminAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, openTime, closeTime, openPana, openSingle, closeSingle, closePana, status, isManual } = req.body;
+    
+    // Simulate Supabase update query inside a try-catch block as requested
+    try {
+      const currentMarkets = loadMarkets();
+      const existingIdx = currentMarkets.findIndex((m: any) => m.id === id);
+
+      if (existingIdx === -1) {
+        throw new Error(`Market with ID ${id} not found in the database. Please verify the ID.`);
+      }
+
+      const updatedMarket = {
+        ...currentMarkets[existingIdx],
+        openPana: openPana !== undefined ? openPana : currentMarkets[existingIdx].openPana,
+        openSingle: openSingle !== undefined ? openSingle : currentMarkets[existingIdx].openSingle,
+        closeSingle: closeSingle !== undefined ? closeSingle : currentMarkets[existingIdx].closeSingle,
+        closePana: closePana !== undefined ? closePana : currentMarkets[existingIdx].closePana,
+        status: status !== undefined ? status : currentMarkets[existingIdx].status,
+        lastUpdated: `Updated via Admin at ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`
+      };
+
+      if (name) updatedMarket.name = name.toUpperCase();
+      if (openTime) updatedMarket.openTime = openTime;
+      if (closeTime) updatedMarket.closeTime = closeTime;
+      if (isManual !== undefined) updatedMarket.isManual = isManual;
+
+      currentMarkets[existingIdx] = updatedMarket;
+      saveMarkets(currentMarkets);
+
+      res.json({ success: true, market: updatedMarket });
+    } catch (supabaseError: any) {
+      console.error("Supabase simulated update error:", supabaseError);
+      res.status(500).json({ error: supabaseError.message || "Supabase database error" });
+    }
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Internal database server bypass failed" });
+  }
+});
+
+app.put("/api/markets", checkAdminAuth, (req, res) => {
+  try {
+    const { id, name, openTime, closeTime, openPana, openSingle, closeSingle, closePana, status, isManual } = req.body;
+    if (!id) {
+      res.status(400).json({ error: "Market ID is required in the body for PUT request" });
+      return;
+    }
+    
+    // Simulate Supabase update query inside a try-catch block as requested
+    try {
+      const currentMarkets = loadMarkets();
+      const existingIdx = currentMarkets.findIndex((m: any) => m.id === id);
+
+      if (existingIdx === -1) {
+        throw new Error(`Market with ID ${id} not found in the database. Please verify the ID.`);
+      }
+
+      const updatedMarket = {
+        ...currentMarkets[existingIdx],
+        openPana: openPana !== undefined ? openPana : currentMarkets[existingIdx].openPana,
+        openSingle: openSingle !== undefined ? openSingle : currentMarkets[existingIdx].openSingle,
+        closeSingle: closeSingle !== undefined ? closeSingle : currentMarkets[existingIdx].closeSingle,
+        closePana: closePana !== undefined ? closePana : currentMarkets[existingIdx].closePana,
+        status: status !== undefined ? status : currentMarkets[existingIdx].status,
+        lastUpdated: `Updated via Admin at ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`
+      };
+
+      if (name) updatedMarket.name = name.toUpperCase();
+      if (openTime) updatedMarket.openTime = openTime;
+      if (closeTime) updatedMarket.closeTime = closeTime;
+      if (isManual !== undefined) updatedMarket.isManual = isManual;
+
+      currentMarkets[existingIdx] = updatedMarket;
+      saveMarkets(currentMarkets);
+
+      res.json({ success: true, market: updatedMarket });
+    } catch (supabaseError: any) {
+      console.error("Supabase simulated update error:", supabaseError);
+      res.status(500).json({ error: supabaseError.message || "Supabase database error" });
+    }
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Internal database server bypass failed" });
+  }
+});
+
 app.delete("/api/markets/:id", checkAdminAuth, (req, res) => {
   try {
     const { id } = req.params;
